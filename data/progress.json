@@ -3,7 +3,7 @@
   "target": "ZTE A2020 SP / P865A02",
   "publication_type": "documentation_snapshot",
   "device_count": 1,
-  "installed_kernel_build": 43,
+  "installed_kernel_build": 44,
   "live_temporary_kernel_build": null,
   "kwin": "6.7.5-1.fc44.armada",
   "sleep_policy": "fake",
@@ -25,7 +25,7 @@
       "local_file_rehashed": true
     },
     {
-      "role": "installed_boot_a_43",
+      "role": "previous_boot_a_43_published_release",
       "sha256": "c673d20f60ff76c4aa7eef87e814975c196a25252fdad77f4324c91957ab1fbd",
       "size_bytes": 70688768,
       "local_file_rehashed": true
@@ -35,11 +35,19 @@
       "sha256": "10078aa92311912329f75e625bb5c65949734d53aab810e3c1508b41b5884af2",
       "size_bytes": 87060480,
       "local_file_rehashed": true
+    },
+    {
+      "role": "installed_boot_a_44",
+      "sha256": "deca3b2550b5679c644b064ad31efae6bdbd0dd615d322b51f1341bb595682ed",
+      "size_bytes": 71221248,
+      "local_file_rehashed": true,
+      "partition_readback_verified": true,
+      "public_download_available": false
     }
   ],
-  "live_kernel_build": 43,
+  "live_kernel_build": 44,
   "normal_reboot_runtime_verified": true,
-  "normal_reboot_physical_confirmation": "passed: user confirmed Steam Game Mode and touch normal",
+  "normal_reboot_physical_confirmation": "passed: user confirmed display, touch and HUB keyboard/mouse normal after installed #44 reboot",
   "long_term_stability_accepted": false,
   "developer_release": {
     "tag": "v0.1.0-dev.20261016",
@@ -51,6 +59,18 @@
       "source_reference",
       "checksums"
     ],
-    "full_rootfs_included": false
+    "full_rootfs_included": false,
+    "boot_kernel_build": 43
+  },
+  "work_state": "paused_by_owner_for_daily_use",
+  "usb_host": {
+    "kernel_build": 44,
+    "usb2_unpowered_hub_accepted": true,
+    "keyboard_mouse_accepted": true,
+    "installed_reboot_accepted": true,
+    "wired_gamepad_accepted": false,
+    "pd_hub_accepted": false,
+    "usb3_accepted": false,
+    "displayport_accepted": false
   }
 }
