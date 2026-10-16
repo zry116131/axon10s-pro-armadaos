@@ -318,3 +318,16 @@ Internal actual counts all1; firmware did not return additional nonzero PERSIST/
 These are current pre-header requirements, not final DPB demand. FW OUTPUT/OUTPUT2 counts32 follow earlier set_num_bufs32; host actual1 is not application queue length. Query success does not establish resource loading or decode success. Next bounded hypothesis: compare requirements before/after count declaration to establish whether32 is configuration echo, then assess actual registered DPB counts. No justification yet for forcing32 DPBs. Steam global hardware video remains off; boot/REC unchanged.
 
 After the query trial, normal reboot restored installed #56 (7.2.6-axon10s-dsiclkfix1). SSH verified system running, game-mode user service active, no failed system units, and only2GiB ZRAM swap.
+
+
+## #74 VPx count declaration comparison
+
+Based on#71, diagnostic-only exact Axon/SM8250/HFI6/FW1.0.90/VP8-or-VP9 guard. Query before original set_num_bufs, send original input/32/32 declaration once, query again, then cancel before loading/first input. All failures propagate; non-VPx retains original sequence. Extracted-function ASan/UBSan and independent review passed; full compile and preservation checks passed. Image SHA256 `6308c15ec0958127d34f2edcacee8737a62562106d0e2e242fbac9486bf46a86`. Temporary fastboot boot only.
+
+Both codecs completed both queries with ret0 and explicit cancellation, no known firmware SFR/Err_Fatal in captured kernel log. Probe exit1/zero frames is intentional, not successful decoding. Before declaration, OUTPUT and OUTPUT2: VP8 hold6/min0/actual6; VP9 hold11/min0/actual11. After declaration, both codecs hold32/min32/actual32. INPUT actual6 became4. Internal requirements and all sizes were unchanged. Thus32 in#73 is affected by host declaration and is not evidence of a natural32-buffer minimum. Do not inflate DPB allocation on this basis. Raw fields and diagnostic-only patch are in experiments/74-vpx-count-before-after.json and74-vpx-count-query-DIAGNOSTIC.patch.
+
+Code trace: initial output startup loads/registers internal resources but allocates no DPB before the initial input. Actual DPB allocation happens after the sequence-change event in capture startup; static/platform and event-derived minima determine allocation. VP9 has a special fw_min_cnt=11 override, VP8 uses the event count with its platform minimum. All codecs, including working H264, share32/32 declaration. This does not establish DPB shortage as the first-packet fault.
+
+Focused downstream comparison: current sm8250_res.num_vpp_pipes is4 (not2); Qualcomm IRIS2 also defaults work_route4 and mode1 for progressive320x240, without VPx decoder special cases. No basis for a mode/route change. Exact720p boundary differs (< downstream, <= mainline), outside this fixture. Source: https://android.googlesource.com/kernel/msm/+/9b46d8c49a673cca641aef1c83f409e83cd88f18/drivers/media/platform/msm/vidc/msm_vidc_clocks.c . Limited decoder-entry inspection also provided no evidence for a VPx-specific framing property; no framing patch proposed.
+
+After#74 normal reboot, USB and SSH verified stable#56, system running, game mode active, zero failed units, only2GiB ZRAM. Settings readback video=false/webviews=true. Early SSH timeout resolved after startup; USB confirmed healthy network, no manual recovery needed.
