@@ -62,7 +62,7 @@
     "full_rootfs_included": false,
     "boot_kernel_build": 43
   },
-  "work_state": "paused_by_owner_for_daily_use",
+  "work_state": "active_runtime_and_platform_repairs",
   "usb_host": {
     "kernel_build": 44,
     "usb2_unpowered_hub_accepted": true,
@@ -72,5 +72,9 @@
     "pd_hub_accepted": false,
     "usb3_accepted": false,
     "displayport_accepted": false
-  }
+  },
+  "runtime_repair_record": "docs/RUNTIME-REPAIRS.md",
+  "compressed_swap_enabled": false,
+  "disk_swap_mib": 2048,
+  "gpu_freeze_root_cause_resolved": false
 }

@@ -1,0 +1,2 @@
+# Suppress only the exact masked brightness restore request on this panel.
+SUBSYSTEM=="backlight", KERNEL=="ae94000.dsi.0", ENV{SYSTEMD_WANTS}=="systemd-backlight@backlight:ae94000.dsi.0.service", ENV{SYSTEMD_WANTS}=""
