@@ -165,7 +165,8 @@
       61,
       62,
       63,
-      64
+      64,
+      65
     ],
     "soundwire_rx_tx_bound_in_58": true,
     "variant_confirmed": true,
@@ -208,6 +209,10 @@
     "startup_recovery_safeguard_installed": true,
     "startup_recovery_failing_boot_verified": false,
     "startup_recovery_normal_boot_noop_verified": true,
-    "startup_vote_timeout_root_cause_resolved": false
+    "startup_vote_timeout_root_cause_resolved": false,
+    "trial65_vote_response_fix_booted": true,
+    "trial65_pipewire_tone_capture_verified": true,
+    "trial65_soundwire_warning_unresolved": true,
+    "vote_response_layout_and_handle_fix": "runtime/kernel-patches/0004-q6afe-preserve-vote-handle.patch"
   }
 }

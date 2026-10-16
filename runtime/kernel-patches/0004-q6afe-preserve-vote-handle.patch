@@ -1,0 +1,101 @@
+--- a/sound/soc/qcom/qdsp6/q6afe.c
++++ b/sound/soc/qcom/qdsp6/q6afe.c
+@@ -379,6 +379,7 @@
+ 	struct q6core_svc_api_info ainfo;
+ 	struct mutex lock;
+ 	struct aprv2_ibasic_rsp_result_t result;
++	u32 vote_result;
+ 	wait_queue_head_t wait;
+ 	struct list_head port_list;
+ 	spinlock_t port_list_lock;
+@@ -972,9 +973,11 @@
+ 	if (!data->payload_size)
+ 		return 0;
+ 
+-	res = data->payload;
+ 	switch (hdr->opcode) {
+ 	case APR_BASIC_RSP_RESULT: {
++		if (data->payload_size < sizeof(*res))
++			return -EINVAL;
++		res = data->payload;
+ 		if (res->status) {
+ 			dev_err(afe->dev, "cmd = 0x%x returned error = 0x%x\n",
+ 				res->opcode, res->status);
+@@ -1001,8 +1004,11 @@
+ 	}
+ 		break;
+ 	case AFE_CMD_RSP_REMOTE_LPASS_CORE_HW_VOTE_REQUEST:
++		if (data->payload_size < sizeof(afe->vote_result))
++			return -EINVAL;
++		memcpy(&afe->vote_result, data->payload, sizeof(afe->vote_result));
++		afe->result.status = 0;
+ 		afe->result.opcode = hdr->opcode;
+-		afe->result.status = res->status;
+ 		wake_up(&afe->wait);
+ 		break;
+ 	default:
+@@ -1029,7 +1035,8 @@
+ EXPORT_SYMBOL_GPL(q6afe_get_port_id);
+ 
+ static int afe_apr_send_pkt(struct q6afe *afe, struct apr_pkt *pkt,
+-			    struct q6afe_port *port, uint32_t rsp_opcode)
++			    struct q6afe_port *port, uint32_t rsp_opcode,
++			    uint32_t *client_handle)
+ {
+ 	wait_queue_head_t *wait;
+ 	struct aprv2_ibasic_rsp_result_t *result;
+@@ -1064,6 +1071,8 @@
+ 		ret = -EINVAL;
+ 	} else {
+ 		ret = 0;
++		if (client_handle)
++			*client_handle = afe->vote_result;
+ 	}
+ 
+ err:
+@@ -1109,7 +1118,7 @@
+ 	pdata->param_id = param_id;
+ 	pdata->param_size = psize;
+ 
+-	ret = afe_apr_send_pkt(afe, pkt, port, AFE_SVC_CMD_SET_PARAM);
++	ret = afe_apr_send_pkt(afe, pkt, port, AFE_SVC_CMD_SET_PARAM, NULL);
+ 	if (ret)
+ 		dev_err(afe->dev, "AFE set params failed %d\n", ret);
+ 
+@@ -1162,7 +1171,7 @@
+ 	pdata->param_id = param_id;
+ 	pdata->param_size = psize;
+ 
+-	ret = afe_apr_send_pkt(afe, pkt, port, AFE_PORT_CMD_SET_PARAM_V2);
++	ret = afe_apr_send_pkt(afe, pkt, port, AFE_PORT_CMD_SET_PARAM_V2, NULL);
+ 	if (ret)
+ 		dev_err(afe->dev, "AFE enable for port 0x%x failed %d\n",
+ 		       port_id, ret);
+@@ -1309,7 +1318,7 @@
+ 	stop->port_id = port_id;
+ 	stop->reserved = 0;
+ 
+-	ret = afe_apr_send_pkt(afe, pkt, port, AFE_PORT_CMD_DEVICE_STOP);
++	ret = afe_apr_send_pkt(afe, pkt, port, AFE_PORT_CMD_DEVICE_STOP, NULL);
+ 	if (ret)
+ 		dev_err(afe->dev, "AFE close failed %d\n", ret);
+ 
+@@ -1712,7 +1721,7 @@
+ 
+ 	start->port_id = port_id;
+ 
+-	ret = afe_apr_send_pkt(afe, pkt, port, AFE_PORT_CMD_DEVICE_START);
++	ret = afe_apr_send_pkt(afe, pkt, port, AFE_PORT_CMD_DEVICE_START, NULL);
+ 	if (ret)
+ 		dev_err(afe->dev, "AFE enable for port 0x%x failed %d\n",
+ 			port_id, ret);
+@@ -1896,7 +1905,8 @@
+ 			sizeof(vote_cfg->client_name));
+ 
+ 	ret = afe_apr_send_pkt(afe, pkt, NULL,
+-			       AFE_CMD_RSP_REMOTE_LPASS_CORE_HW_VOTE_REQUEST);
++			       AFE_CMD_RSP_REMOTE_LPASS_CORE_HW_VOTE_REQUEST,
++			       client_handle);
+ 	if (ret)
+ 		dev_err(afe->dev, "AFE failed to vote (%d)\n", hw_block_id);
+ 

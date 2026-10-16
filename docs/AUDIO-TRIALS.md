@@ -117,3 +117,15 @@ BOB 仍为 3032 mV，S4A 1800 mV；ADC1、ADC1_MIXER 均 off，TX DEC0 MUX 为�
 实机核对纠正了 APR 总线路径（`aprbus`），并为当前实际启动的 `axon-test.target` 增加启动关系。#56 条件跳过且无 attempt marker；#64 正常临时启动时服务自动执行，检测 VA 已绑定后直接退出，无 marker、无重探测，持久化 UCM 自动建立 Speaker/Mic。自动恢复失败启动的分支仍待实机验证，不能以正常启动跳过冒充恢复验收。
 
 源码审查发现 SoundWire bit9 警告打印后立即屏蔽该中断；普通 runtime resume 不重新开启。因此后续没有警告不能证明故障未复发。`qualcomm-registers` debugfs 整表读取还会触及读 FIFO，不能作为无副作用诊断；本轮采集脚本只读 PCM 状态与 DAPM，没有读取该寄存器表。下一步诊断应保持现有控制流，仅记录已有 IRQ 状态和相关读命令元数据。
+
+## #65：修正 AFE vote 响应布局与句柄交付
+
+源码确认独立缺陷：`0x100f5` 响应实际为单个 u32 client_handle，现有代码把它当作 opcode/status，读取 payload 第二个 u32，并且从未给 vote 调用者输出 handle。[官方下游实现](https://android.googlesource.com/kernel/msm-extra/+/refs/tags/android-11.0.0_r0.18/dsp/q6afe.c) 和 [上游补丁讨论](https://lists.openwall.net/linux-kernel/2026/04/23/246) 支持该协议布局。
+
+`0004-q6afe-preserve-vote-handle.patch` 校验 basic/vote 最短响应长度，以 memcpy 读取单 u32，并在现有请求锁释放前交付 handle；普通调用传 NULL，失败路径保持调用者输出不变。相较讨论中的简单共享结果实现，避免解锁后再取 handle 的正常请求间覆盖窗口。原有迟到响应仅按 opcode 匹配的边界仍在，不声称解决首次 -110 根因或所有异步竞态。
+
+实际 callback/send helper 抽取测试通过 ASan/UBSan：短/完整/扩展/非对齐响应、锁内输出、发送失败/超时/DSP错误输出不变。真实 ARM64 单对象与完整内核构建无警告。#65 镜像 SHA256 `cbf0fc8d18d786bc33f8abbf43496ebaeec714a2aa9398c164e62856bfabdafc`；DT 和内置 initramfs 与 #64 完全一致，config仅变版本名，保留原四项源码覆盖。
+
+临时启动 #65 声卡正常注册，恢复服务因 VA 已绑定而不操作，UCM 自动建立 Speaker/Mic。约5.08秒 PipeWire 测试采集487680个交错s16样本，700/1100Hz对应窗口能量明显上升并结束后下降，play/capture返回0；音量恢复，PCM closed、四个麦克风 DAPM节点全Off，临时音频删除。此次未记录 AFE vote/unvote错误；首次录音仍记录SoundWire bit9警告。因此功能回归通过，不等同启动稳定性和SoundWire问题解决。未写 boot/REC。
+
+#65 测试后已恢复安装版 #56：TFA声卡、Steam独立游戏模式和仅2GiB ZRAM正常，恢复服务按条件跳过，无失败系统服务。
