@@ -3,8 +3,8 @@
   "target": "ZTE A2020 SP / P865A02",
   "publication_type": "documentation_snapshot",
   "device_count": 1,
-  "installed_kernel_build": 54,
-  "live_temporary_kernel_build": 56,
+  "installed_kernel_build": 56,
+  "live_temporary_kernel_build": null,
   "kwin": "6.7.5-1.fc44.armada",
   "sleep_policy": "fake",
   "native_powerkey_wake_accepted": false,
@@ -57,11 +57,18 @@
       "size_bytes": 71290880,
       "partition_readback_verified": true,
       "public_download_available": false
+    },
+    {
+      "role": "installed_boot_a_56_dsiclkfix1",
+      "sha256": "5c40bf2bd1dfa31f5fa80f5a7dab2eca56f706f614b192f5de1b1f57055d57eb",
+      "size_bytes": 71290880,
+      "partition_readback_verified": true,
+      "public_download_available": false
     }
   ],
   "live_kernel_build": 56,
   "normal_reboot_runtime_verified": true,
-  "normal_reboot_physical_confirmation": "pending for #54; software checks passed after normal reboot",
+  "normal_reboot_physical_confirmation": "user confirmed screen and touch on identical temporary build 56; installed normal reboot software checks passed",
   "long_term_stability_accepted": false,
   "developer_release": {
     "tag": "v0.1.0-dev.20261016",
@@ -112,7 +119,7 @@
     "firmware_power_plane_disable_trial": "failed_no_frames_and_idle_timeout"
   },
   "boot_success": {
-    "installed_build": 54,
+    "installed_build": 56,
     "slot": "a",
     "successful": true,
     "unbootable": false,
@@ -121,7 +128,8 @@
     "record": "docs/BOOT-SUCCESS.md",
     "auto_mark_for_future_installations": false,
     "retry_count_after_second_verified_boot": 6,
-    "installed54_normal_reboots_verified": 1
+    "installed54_normal_reboots_verified": 1,
+    "installed56_normal_reboots_verified": 1
   },
   "disk_swap_backup_mib": 2048,
   "swap_policy": "zram_only",
@@ -142,9 +150,10 @@
     "boot_pll_timeout_and_double_disable_resolved_in_trial": true,
     "active_clock_rates_match_baseline": true,
     "gamemode_restart_verified": true,
-    "physical_screen_touch_verified": false,
+    "physical_screen_touch_verified": true,
     "panel_power_cycle_verified": false,
-    "installed": false,
-    "record": "docs/DSI-CLOCK-TRIALS.md"
+    "installed": true,
+    "record": "docs/DSI-CLOCK-TRIALS.md",
+    "installed_normal_reboot_verified": true
   }
 }
