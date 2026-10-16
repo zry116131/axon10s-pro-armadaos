@@ -107,3 +107,5 @@ BOB 仍为 3032 mV，S4A 1800 mV；ADC1、ADC1_MIXER 均 off，TX DEC0 MUX 为�
 首次应用录音时记录一次 SoundWire read-enable-valid mismatch；功能测试成功不能排除该警告的稳定性风险。UCM 候选见 `runtime/alsa-ucm/`。测试通过临时 `/run` 配置和用户服务环境覆盖完成，未修改系统 UCM 文件，覆盖已撤销；未写 boot/REC。语音质量、其他麦克风、长期运行、休眠和非正常断电恢复仍待验证。
 
 随后恢复 #56，修正版 UCM 再经真实 libasound 和 WirePlumber 回退分支验证：仅 Speaker/sink 与其 monitor，无 Mic/source。测试覆盖已撤销，原系统 UCM 保持不变。#56 TFA 声卡恢复，systemd 无失败单元。
+
+完成上述双版本验证后，UCM 修复已持久化至系统配置，SHA256 `1e6d8b8dccabecc385c41cc362b9780833741550e791833b21a24663b005922a`。替换前逐字节核对原文件并备份到 `/var/lib/axon-audio-backup/ZTE-Axon10s-HiFi-speaker-only.conf`，原子替换后校验新文件与备份。无环境覆盖的真实 UCM 加载通过；#56 仍仅有扬声器通道，Steam 独立游戏模式 active、仅2GiB ZRAM、无失败系统服务。采集内核仍未安装，boot/REC未改动。

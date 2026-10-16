@@ -196,12 +196,14 @@
     "trial64_all_controls_restored": true,
     "trial64_known_tone_response_verified": true,
     "microphone_verification_scope": "AMIC1 bounded 700/1100 Hz response via ALSA and PipeWire; repeated application start/stop and idle DAPM off; speech quality, other microphones, long-term stability and suspend unverified",
-    "ucm_capture_integrated": false,
+    "ucm_capture_integrated": true,
     "ucm_capture_candidate_verified": true,
     "ucm_profile_disable_cleanup_verified": true,
     "ucm_idle_dapm_off_verified": true,
     "trial64_startup_vote_timeout_observed": true,
     "trial64_startup_reprobe_recovered": true,
-    "trial64_soundwire_warning_unresolved": true
+    "trial64_soundwire_warning_unresolved": true,
+    "ucm_installed_on_fallback_build": 56,
+    "ucm_sha256": "1e6d8b8dccabecc385c41cc362b9780833741550e791833b21a24663b005922a"
   }
 }
