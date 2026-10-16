@@ -254,3 +254,5 @@ v2默认16-buffer快速解码仍失败：最终600帧内容一致，但45秒期�
 最终decode-drc-fixed SHA256 `2681a4113d8782e15ec2241653fdbcd8ac7e1f73ba1e9763b40beb6135e2cf8c`；seek-lifetime-drc `97aa901532c948216c8bb2b543301f2e4df4aa2faf0c1100d847d5031a71e83b`。部署后hash核对一致。未替换系统库、未打开Steam硬解、未改boot/REC。
 
 限制：raw流无可靠PTS，DRC只验帧内容/顺序/尺寸；DRC测试不跨尺寸保留旧外部帧；同线程持旧帧继续请求重配仍可能等待；原多memory-plane计数问题未混入修复；本机NV12为单memory-plane。不能据此宣称所有播放器、Steam CEF、其他codec/encoder已修复。
+
+本轮DRC测试后已正常返回已安装#56。SSH复核内核7.2.6-axon10s-dsiclkfix1、系统running、独立游戏模式active、仅2GiB ZRAM、0个失败系统服务；USB命令口重新枚举。候选及日志保留，boot/REC未改写。
