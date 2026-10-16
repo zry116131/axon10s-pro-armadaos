@@ -198,3 +198,14 @@ v2默认16-buffer快速解码仍失败：最终600帧内容一致，但45秒期�
 后续连接已恢复：USB及SSH均确认返回#56，系统running、游戏模式active、仅2GiB ZRAM、无失败系统服务。无线恢复服务开机执行并检测到接口已存在，成功无操作退出。上一启动日志到systemd-shutdown/journal停止为止，包含/tmp卸载busy与watchdog超时设置失败，尚不能解释整个重启耗时；不再将暂时失联记作未恢复。
 
 进一步源码审查发现 FFmpeg 8.1.3 h264_v4l2m2m 未注册 flush 回调。通用 avcodec_flush_buffers 不清理私有 pending 包、draining 或硬件队列；capture重配置保留token映射并不等于同会话seek支持。此前初始-ss验收不能覆盖运行中的播放器拖动进度。正准备同一AVCodecContext的中途seek和EOF后seek对照，禁止关闭重开掩盖此缺口。
+
+## 同一解码实例 seek/flush 实机失败已复现
+
+新增 `runtime/diagnostics/video-seek-same-context.c`，每次仅创建一个 AVCodecContext，在中途或自然EOF后调用 av_seek_frame + avcodec_flush_buffers，绝不关闭重开。逐帧转为规范化YUV420P并去除行padding后计算MD5，打印原始PTS；适用本次8-bit420素材。外部timeout25秒、KILL宽限2秒，零帧重播显式失败。测试程序ARM64 SHA256 `c0b133c102559ba1101a41432e8f025b68b9bcba21cd2dada0347ddd03567498`，链接已验证token+v2静态库，临时#71。
+
+- 中途模式：先60帧，软硬件完全一致；再向后关键帧seek至5秒附近。软件phase2为480帧，硬件481帧。额外一帧PTS30720（timebase1/15360，即2秒），随后480帧PTS与hash均匹配。两者退出0，但硬件因残留旧帧判失败。
+- EOF模式：第一遍软硬件600帧全部匹配；seek0+flush后软件再次600帧、退出0，硬件立即EOF、0帧、退出1。
+
+这确认“初始起播通过”不能替代播放器拖动进度/重复播放验收。当前补丁仍不安装为系统FFmpeg，也不启用Steam硬解。
+
+生命周期审查还发现，不能直接把现有codec_end+init挂入flush：STREAMOFF失败时end仍释放OUTPUT，旧外部帧回收可能继续QBUF；提取实际函数的ASan/UBSan桩测试已复现这一控制流。需先实现退休会话与回收排队的同步、失败时保留资源及显式错误传播，才可受控测试内部重建硬件会话。此处不宣称已经修复seek。
