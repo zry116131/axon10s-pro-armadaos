@@ -40,5 +40,17 @@
   "live_kernel_build": 43,
   "normal_reboot_runtime_verified": true,
   "normal_reboot_physical_confirmation": "passed: user confirmed Steam Game Mode and touch normal",
-  "long_term_stability_accepted": false
+  "long_term_stability_accepted": false,
+  "developer_release": {
+    "tag": "v0.1.0-dev.20261016",
+    "url": "https://github.com/zry116131/axon10s-pro-armadaos/releases/tag/v0.1.0-dev.20261016",
+    "contents": [
+      "boot43",
+      "recovery",
+      "kernel_configs",
+      "source_reference",
+      "checksums"
+    ],
+    "full_rootfs_included": false
+  }
 }
