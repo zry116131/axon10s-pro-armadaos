@@ -1,0 +1,15 @@
+# Public documentation only. Build and private evidence stay outside this tree.
+.DS_Store
+out/
+work/
+*.img
+*.bin
+*.mbn
+*.elf
+*.core
+*.zst
+*.rpm
+*.key
+*.pem
+*.log
+.env
