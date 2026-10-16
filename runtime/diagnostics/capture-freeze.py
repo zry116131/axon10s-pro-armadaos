@@ -9,7 +9,7 @@ import re
 import time
 
 PROC = pathlib.Path('/proc')
-NAMES = {'steamwebhelper', 'gamescope', 'Xwayland'}
+NAMES = {'steamwebhelper', 'gamescope', 'gamescope-wl', 'Xwayland'}
 MEM = {'MemAvailable', 'MemFree', 'SwapTotal', 'SwapFree', 'Shmem', 'Slab'}
 VM = {'oom_kill', 'pswpin', 'pswpout', 'allocstall_normal', 'allocstall_dma32',
       'pgscan_direct', 'pgsteal_direct', 'compact_stall'}
@@ -84,10 +84,16 @@ def processes():
         except OSError:
             continue
         row['thread_count'] = len(tasks)
-        for t in tasks[:32]:
-            item = dict(tid=int(t.name), stat=stat(t / 'stat'),
+        named = [(t, (read(t / 'comm', 64) or '').strip()) for t in tasks]
+        critical = {'GpuWatchdog', 'CrGpuMain', 'VizCompositorTh', 'Compositor', 'RenderThread'}
+        named.sort(key=lambda pair: (0 if pair[1] == 'GpuWatchdog' else 1 if pair[0].name == d.name else
+                                     2 if pair[1] in critical else 3,
+                                     int(pair[0].name)))
+        row['threads_omitted'] = max(0, len(named) - 32)
+        for t, thread_name in named[:32]:
+            item = dict(tid=int(t.name), name=thread_name, stat=stat(t / 'stat'),
                         wchan=(read(t / 'wchan', 128) or '').strip())
-            if role in {'gpu', 'gpu_thread_hint'} or name in {'gamescope', 'Xwayland'}:
+            if role in {'gpu', 'gpu_thread_hint'} or name in {'gamescope', 'gamescope-wl', 'Xwayland'}:
                 stack = read(t / 'stack', 2048)
                 # Function names only: discard addresses, offsets and arguments.
                 item['kernel_stack'] = (re.findall(r'\]\s+([A-Za-z0-9_.]+)\+', stack)

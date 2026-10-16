@@ -214,5 +214,22 @@
     "trial65_pipewire_tone_capture_verified": true,
     "trial65_soundwire_warning_unresolved": true,
     "vote_response_layout_and_handle_fix": "runtime/kernel-patches/0004-q6afe-preserve-vote-handle.patch"
+  },
+  "gpu_transition_validation": {
+    "build": 56,
+    "game": "Hollow Knight: Silksong",
+    "sample_windows_seconds": [
+      180,
+      90
+    ],
+    "game_launches": 3,
+    "freeze_reproduced": false,
+    "freeze_fixed": false,
+    "observed_oom_kill_delta": 0,
+    "cef_gpu_restarts_observed": 0,
+    "watchdog_thread_selection_corrected": true,
+    "gamescope_wl_selection_corrected": true,
+    "record": "docs/GPU-TRANSITION-TRIALS.md",
+    "scope": "bounded startup and SIGTERM return; no gameplay, overlay or physical display acceptance"
   }
 }
