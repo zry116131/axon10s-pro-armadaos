@@ -223,3 +223,5 @@ v2默认16-buffer快速解码仍失败：最终600帧内容一致，但45秒期�
 持帧测试共5阶段，帧数60/45/45/360/600，前后跳转并包含EOF重播，始终同一外部AVCodecContext。每次clone保留旧帧至flush和下一阶段之后，四次转场共8个MD5复核全部相同。各阶段首尾PTS/hash及帧数与软件一致、退出0。该测试只比较阶段边界和旧帧，未比较每个中间帧。内核日志无本轮Venus SFR/固件故障或IOMMU fault记录。
 
 独立ffmpeg二进制SHA256 `5218bc86e87d08b316029bc9ff7ab8332a02417034364b3033e90ec65f350657`；same-context测试程序 `3d6e1b74eac89b9f04759f827af4f8e5542d8d43fc7e019cc3799ed449e653ba`；lifetime程序 `7f38379b076fb06845e08f4a7e34221413cd5ef96e83b7c83c4acc96119f8769`，部署后hash核对一致。未替换系统FFmpeg，未启用Steam硬解，未改boot/REC。真实分辨率重配置、长期播放器使用、发行包和Steam自身解码链路接入仍需验收；其他codec/encoder仅共享路径审查，未做实机集成验证。
+
+本轮flush测试后已正常返回#56，USB与SSH复核系统running、游戏模式active、仅2GiB ZRAM、无失败系统服务；无线服务健康无操作退出。GitHub dry-run push返回缺少HTTPS凭据，未进行远端发布，关键节点暂保留本地提交。
