@@ -331,3 +331,22 @@ Code trace: initial output startup loads/registers internal resources but alloca
 Focused downstream comparison: current sm8250_res.num_vpp_pipes is4 (not2); Qualcomm IRIS2 also defaults work_route4 and mode1 for progressive320x240, without VPx decoder special cases. No basis for a mode/route change. Exact720p boundary differs (< downstream, <= mainline), outside this fixture. Source: https://android.googlesource.com/kernel/msm/+/9b46d8c49a673cca641aef1c83f409e83cd88f18/drivers/media/platform/msm/vidc/msm_vidc_clocks.c . Limited decoder-entry inspection also provided no evidence for a VPx-specific framing property; no framing patch proposed.
 
 After#74 normal reboot, USB and SSH verified stable#56, system running, game mode active, zero failed units, only2GiB ZRAM. Settings readback video=false/webviews=true. Early SSH timeout resolved after startup; USB confirmed healthy network, no manual recovery needed.
+
+
+## #75 bounded firmware log output: LOAD_RESOURCES invalid-state evidence
+
+Diagnostic-only#71 decoding path with hfi_venus.c debug-queue output enabled only for Axon/SM8250/HFI6/FW1.0.90. No query cancellation or decoder changes. At most32 messages per boot,256 bytes each; validates aligned packet size, type and payload bounds, copies shared buffer under existing lock, prints outside. Nonmatching path unchanged. Default fw_level0x18 preserved. Actual-function ASan/UBSan plus4-thread budget tests, independent review and complete kernel/preservation checks passed. Image SHA256 `5712d676e05c6b165c7badea10ed2cc8439b6e3d8262c53a79dfd557bf156475`.
+
+First VP8 stop probe at default0x18: one upstream input, zero output, exit1, same SFR at34.990036; no debug text. This alone cannot prove firmware emitted no messages. After firmware recovery, enabled0x1f temporarily and ran a tiny QUERYCAP/S_FMT/REQBUFS probe, no QBUF or STREAMON. It initialized the VP8 session, allocated4 input buffers, released them, exited0; actual FW session-created and command messages appeared. Restored0x18. This verifies the logging path accepts real firmware messages without provoking decoding.
+
+A single additional VP8 probe temporarily used0x1c (HIGH|ERROR|FATAL), avoiding most per-command LOW logs. It again returned one upstream buffer, zero frames, exit1. New firmware evidence:
+
+- 133.257519: VenusDecoder: LOAD_RESOURCES
+- 133.283616: VenusDecoder: Load Resources Command received in Invalid State4
+- 133.356676: same vpx_decoder.c:1126:67861 fatal
+
+The failure is now tied to resource-loading/state transition, not established as bitstream parsing. Earlier 'first packet' wording described the GStreamer sink count; that count does not prove ETB reached firmware. Do not interpret private firmware state4 as a known host HFI state without evidence. Next investigate actual LOAD/START/ETB ordering and downstream initialization differences. No arbitrary state bypass, buffer inflation or work-mode change justified. Firmware debug verbosity restored0x18; no permanent setting or boot/REC writes. Diagnostic logging perturbs IRQ timing; failure still reproduced. Full private logs retained, bounded excerpts and diagnostic patch/session-only source saved under experiments/75-*.
+
+Independent source review confirms internal allocation/registration precedes synchronous hfi_session_load_res; START and initial ETB follow successful load. No normal double-LOAD path found: initial DEINIT starts resources, capture reconfiguration uses CONTINUE. Downstream also uses init_done -> LOAD -> START, with no VPx skip; do not remove LOAD. The earlier110s session-only probe and133s fresh session creation are distinct attempts, not proof of reused loaded session. Source: https://android.googlesource.com/kernel/msm/+/9b46d8c49a673cca641aef1c83f409e83cd88f18/drivers/media/platform/msm/vidc/msm_vidc_common.c#3913 . Next compare pre-load properties and internal buffer registration sequence.
+
+After#75, normal reboot restored installed#56. USB/SSH verified system running, game mode active, no failed system services, only2GiB ZRAM. Steam settings readback after initialization: video=false/webviews=true. No boot/REC or persistent verbosity changes.

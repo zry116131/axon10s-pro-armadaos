@@ -1,0 +1,13 @@
+INPUT_END buffers=1 eos=True monotonic=134.696665042
+DECODE_END frames=0 result=-1 decoder_instances=1 flushes=0 reopens=0
+[   34.990036] axon10s-armada kernel: qcom-venus aa00000.video-codec: SFR message from FW: QC_IMAGE_VERSION_STRING=VIDEO.VPU.1.0-00090-PROD-1 Err_Fatal - Z:/b/venus_proc/venus/decoders/vpx/src/vpx_decoder.c:1126:67861
+[  110.156132] axon10s-armada kernel: qcom-venus aa00000.video-codec: AXON_VPX_FW  <VFW_L:HostDr:unkn:--------:-> Host cmd: HFI_CMD_SYS_SESSION_INIT
+[  110.157183] axon10s-armada kernel: qcom-venus aa00000.video-codec: AXON_VPX_FW  <VFW_H:HostDr:unkn:--------:-> HostDriver: VPx Decode Session Created
+[  110.157859] axon10s-armada kernel: qcom-venus aa00000.video-codec: AXON_VPX_FW  <VFW_L:HostDr:unkn:--------:-> Host cmd: HFI_CMD_SESSION_SET_PROPERTY
+[  133.234562] axon10s-armada kernel: qcom-venus aa00000.video-codec: AXON_VPX_FW  <VFW_L:HostDr:unkn:--------:-> Host cmd: HFI_CMD_SYS_SET_PROPERTY
+[  133.235715] axon10s-armada kernel: qcom-venus aa00000.video-codec: AXON_VPX_FW  <VFW_H:HostDr:unkn:--------:-> HostDriver: VPx Decode Session Created
+[  133.236443] axon10s-armada kernel: qcom-venus aa00000.video-codec: AXON_VPX_FW  <VFW_H:HostDr:vp8d:724e2000:00000000> Uncompressed Format Select;
+[  133.246033] axon10s-armada kernel: qcom-venus aa00000.video-codec: AXON_VPX_FW  <VFW_H:HostDr:vp8d:724e2000:00000000> Uncompressed Format Select;
+[  133.257519] axon10s-armada kernel: qcom-venus aa00000.video-codec: AXON_VPX_FW  <VFW_H:HostDr:vp8d:724e2000:00000000> VenusDecoder: LOAD_RESOURCES
+[  133.283616] axon10s-armada kernel: qcom-venus aa00000.video-codec: AXON_VPX_FW  <VFW_H:HostDr:vp8d:724e2000:00000000> VenusDecoder: Load Resources Command received in Invalid State 4
+[  133.356676] axon10s-armada kernel: qcom-venus aa00000.video-codec: SFR message from FW: QC_IMAGE_VERSION_STRING=VIDEO.VPU.1.0-00090-PROD-1 Err_Fatal - Z:/b/venus_proc/venus/decoders/vpx/src/vpx_decoder.c:1126:67861
