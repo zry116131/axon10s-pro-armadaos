@@ -1,0 +1,67 @@
+--- a/libavcodec/v4l2_m2m_dec.c
++++ b/libavcodec/v4l2_m2m_dec.c
+@@ -26,6 +26,7 @@
+ #include "libavutil/pixfmt.h"
+ #include "libavutil/pixdesc.h"
+ #include "libavutil/opt.h"
++#include "libavutil/time.h"
+ #include "libavcodec/avcodec.h"
+ #include "codec_internal.h"
+ #include "libavcodec/decode.h"
+@@ -138,6 +139,7 @@
+     V4L2m2mContext *s = ((V4L2m2mPriv*)avctx->priv_data)->context;
+     V4L2Context *const capture = &s->capture;
+     V4L2Context *const output = &s->output;
++    int64_t retry_deadline = 0;
+     int ret;
+ 
+     if (!s->buf_pkt.size) {
+@@ -153,6 +155,7 @@
+     if (s->draining)
+         goto dequeue;
+ 
++retry_enqueue:
+     ret = ff_v4l2_context_enqueue_packet(output, &s->buf_pkt);
+     if (ret < 0 && ret != AVERROR(EAGAIN))
+         goto fail;
+@@ -164,15 +167,33 @@
+     if (!s->draining) {
+         ret = v4l2_try_start(avctx);
+         if (ret) {
+-            /* can't recover */
+-            if (ret != AVERROR(ENOMEM))
+-                ret = 0;
++            if (ret == AVERROR(ENOMEM))
++                goto fail;
++            /* Preserve pending input and service capture/source-change events. */
++            goto dequeue;
++        }
++    }
++
++dequeue:
++    ret = ff_v4l2_context_dequeue_frame(capture, frame,
++                                         s->buf_pkt.size ? 20 : -1);
++    if (ret == AVERROR(EAGAIN) && s->buf_pkt.size && !s->draining) {
++        int64_t now = av_gettime_relative();
++
++        /* Experimental bound for repeated POLLERR/no-progress responses.
++         * Pending-input polls are limited to 20ms; blocking ioctls are not
++         * interrupted by this deadline.
++         */
++        if (!retry_deadline)
++            retry_deadline = now + 2000000;
++        if (now >= retry_deadline) {
++            ret = AVERROR(ETIMEDOUT);
+             goto fail;
+         }
+-    }
+-
+-dequeue:
+-    return ff_v4l2_context_dequeue_frame(capture, frame, -1);
++        av_usleep(1000);
++        goto retry_enqueue;
++    }
++    return ret;
+ fail:
+     av_packet_unref(&s->buf_pkt);
+     return ret;

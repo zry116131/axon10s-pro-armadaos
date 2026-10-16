@@ -1,0 +1,11 @@
+--- a/libavcodec/v4l2_m2m_dec.c
++++ b/libavcodec/v4l2_m2m_dec.c
+@@ -166,7 +166,7 @@
+         if (ret) {
+             /* can't recover */
+             if (ret != AVERROR(ENOMEM))
+-                ret = 0;
++                return 0;
+             goto fail;
+         }
+     }
