@@ -33,3 +33,11 @@ RX/TX macro等待LPASS pinctrl供应者，两条SWR继续等待macro。查明PIN
 这次没有复现 #58 的启动阻塞，不能声称其根因已经修复。早期 shell 清理改变了切根时序，Wi-Fi 正常与此前固件读取竞态假设一致，但单次观察不能证实该假设，不能将清理延迟当作网络修复。#58 日志中的不完整 sda 初始化片段也不能单独证明块设备死锁。
 
 #59 镜像 SHA256：`1037fbdf23597e6e90eb98fb43023da1d1cd93d07c17e3ee27f7ccab207bd164`。仅通过 fastboot 临时启动，未写入 boot 或 REC。测试后正常重启恢复已安装 #56，SSH、Steam 游戏模式和仅 2 GiB ZRAM 再次通过，systemd 无失败单元。后续应以早期任务栈定位复现的阻塞，并单独验证音频实际路由。
+
+## 后续 component 绑定准备
+
+源码审查发现 `sm8250_snd_init` 会经通用 jack helper 对 WCD capture link 调用 `set_jack`，从而启动 MBHC 耳机检测；不打开录音流并不能排除这个自动行为。现有 jack-type 属性只描述触点极性，没有可直接关闭此路径的 DT 属性。下一候选将仅在本机 `TX_CODEC_DMA_TX_3` 链路跳过 jack setup，保留其他板型、TFA、USB 和 DP 行为；component 自身的寄存器初始化与 IRQ 注册仍执行。
+
+标准后端为 `TX_CODEC_DMA_TX_3 → WCD DAI1 + swr2 DAI0 + txmacro DAI0`。先验证 component 绑定，不添加模拟麦克风路由或录音流。现有主线机器驱动将后端固定为 48 kHz / S16_LE / 双声道，后续单模拟源测试须与 PCM 声道配置区分。
+
+WCD 驱动不主动设置或校验 BOB 输入电压；1–2.85 V 的校验针对 MICBIAS 输出，不能用于证明 3.032 V 输入符合模拟规格。共享 BOB 还连接多组 PMIC 电源输入，本阶段保持其电压。厂商 mixer 配置未在已提取文件中找到，不能据此断言原厂镜像内不存在。
