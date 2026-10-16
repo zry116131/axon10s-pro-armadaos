@@ -1,0 +1,511 @@
+--- a/libavcodec/v4l2_m2m.h
++++ b/libavcodec/v4l2_m2m.h
+@@ -67,6 +67,11 @@
+     sem_t refsync;
+     atomic_uint refcount;
+     int reinit;
++    /* Decoder thread owns DRC state; callbacks only inspect locked reinit. */
++    int source_change_seen;
++    int drc_pending;
++    int drc_ready;
++    int drc_error;
+ 
+     /* Serialize callback QBUF with permanent retirement. Initialize once. */
+     AVMutex queue_lock;
+--- a/libavcodec/v4l2_m2m.c
++++ b/libavcodec/v4l2_m2m.c
+@@ -205,44 +205,44 @@
+  ******************************************************************************/
+ int ff_v4l2_m2m_codec_reinit(V4L2m2mContext *s)
+ {
+-    void *log_ctx = s->avctx;
+-    int ret;
+-
+-    av_log(log_ctx, AV_LOG_DEBUG, "reinit context\n");
+-
+-    /* 1. streamoff */
+-    ret = ff_v4l2_context_set_status(&s->capture, VIDIOC_STREAMOFF);
+-    if (ret)
+-        av_log(log_ctx, AV_LOG_ERROR, "capture VIDIOC_STREAMOFF\n");
+-
+-    /* 2. unmap the capture buffers (v4l2 and ffmpeg):
+-     *    we must wait for all references to be released before being allowed
+-     *    to queue new buffers.
+-     */
+-    av_log(log_ctx, AV_LOG_DEBUG, "waiting for user to release AVBufferRefs\n");
+-    if (atomic_load(&s->refcount))
+-        while(sem_wait(&s->refsync) == -1 && errno == EINTR);
++    int ret;
++
++    ff_mutex_lock(&s->queue_lock);
++    s->reinit = 1;
++    ff_mutex_unlock(&s->queue_lock);
++
++    ret = s->capture.streamon ?
++          ff_v4l2_context_set_status(&s->capture, VIDIOC_STREAMOFF) : 0;
++    if (ret < 0)
++        return ret; /* Keep all mappings and callback suppression on failure. */
++
++    /* Recheck the predicate after every wake, including stale semaphore posts.
++     * No receive/enqueue runs concurrently on this AVCodecContext. */
++    for (;;) {
++        ff_mutex_lock(&s->queue_lock);
++        ret = atomic_load(&s->refcount) != 0;
++        ff_mutex_unlock(&s->queue_lock);
++        if (!ret)
++            break;
++        do {
++            ret = sem_wait(&s->refsync);
++        } while (ret == -1 && errno == EINTR);
++        if (ret == -1)
++            return AVERROR(errno);
++    }
+ 
+     ff_v4l2_context_release(&s->capture);
+-
+-    /* 3. get the new capture format */
+     ret = ff_v4l2_context_get_format(&s->capture, 0);
+-    if (ret) {
+-        av_log(log_ctx, AV_LOG_ERROR, "query the new capture format\n");
++    if (ret < 0)
+         return ret;
+-    }
+-
+-    /* 4. set the capture format */
+     ret = ff_v4l2_context_set_format(&s->capture);
+-    if (ret) {
+-        av_log(log_ctx, AV_LOG_ERROR, "setting capture format\n");
++    if (ret < 0)
+         return ret;
+-    }
+-
+-    /* 5. complete reinit */
+-    s->draining = 0;
++
++    ff_mutex_lock(&s->queue_lock);
+     s->reinit = 0;
+-
++    ff_mutex_unlock(&s->queue_lock);
++    /* An input STOP may already be pending; DRC must not discard draining. */
+     return 0;
+ }
+ 
+--- a/libavcodec/v4l2_m2m_dec.c
++++ b/libavcodec/v4l2_m2m_dec.c
+@@ -71,17 +71,25 @@
+     selection.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+     selection.r.height = avctx->coded_height;
+     selection.r.width = avctx->coded_width;
+-    ret = ioctl(s->fd, VIDIOC_S_SELECTION, &selection);
+-    if (!ret) {
++    /* Setting crop is optional; independently query the driver's visible area. */
++    ioctl(s->fd, VIDIOC_S_SELECTION, &selection);
++    selection.target = V4L2_SEL_TGT_COMPOSE;
++    ret = ioctl(s->fd, VIDIOC_G_SELECTION, &selection);
++    if (ret) {
++        selection.target = V4L2_SEL_TGT_COMPOSE_DEFAULT;
+         ret = ioctl(s->fd, VIDIOC_G_SELECTION, &selection);
+-        if (ret) {
+-            av_log(avctx, AV_LOG_WARNING, "VIDIOC_G_SELECTION ioctl\n");
+-        } else {
+-            av_log(avctx, AV_LOG_DEBUG, "crop output %dx%d\n", selection.r.width, selection.r.height);
+-            /* update the size of the resulting frame */
+-            capture->height = selection.r.height;
+-            capture->width  = selection.r.width;
+-        }
++    }
++    if (!ret && (selection.r.left || selection.r.top)) {
++        av_log(avctx, AV_LOG_ERROR, "nonzero visible compose offset unsupported\n");
++        return AVERROR(ENOSYS);
++    }
++    if (!ret && selection.r.width > 0 && selection.r.height > 0 &&
++        selection.r.width <= capture->width &&
++        selection.r.height <= capture->height) {
++        capture->width = selection.r.width;
++        capture->height = selection.r.height;
++        avctx->width = selection.r.width;
++        avctx->height = selection.r.height;
+     }
+ 
+     /* 4. init the capture context now that we have the capture format */
+@@ -134,6 +142,80 @@
+     return 0;
+ }
+ 
++static int v4l2_save_visible(V4L2m2mContext *s, unsigned int width,
++                             unsigned int height, struct v4l2_rect *visible)
++{
++    struct v4l2_selection selection = {
++        .type = V4L2_BUF_TYPE_VIDEO_CAPTURE,
++        .target = V4L2_SEL_TGT_COMPOSE,
++    };
++    if (ioctl(s->fd, VIDIOC_G_SELECTION, &selection) < 0) {
++        if (errno != EINVAL && errno != ENOTTY)
++            return AVERROR(errno);
++        selection.target = V4L2_SEL_TGT_COMPOSE_DEFAULT;
++        if (ioctl(s->fd, VIDIOC_G_SELECTION, &selection) < 0)
++            return errno == EINVAL || errno == ENOTTY ? 0 : AVERROR(errno);
++    }
++    if (selection.r.left || selection.r.top)
++        return AVERROR(ENOSYS);
++    if (!selection.r.width || !selection.r.height ||
++        selection.r.width > width || selection.r.height > height)
++        return AVERROR_INVALIDDATA;
++    *visible = selection.r;
++    return 1;
++}
++
++static int v4l2_finish_drc(AVCodecContext *avctx)
++{
++    V4L2m2mContext *s = ((V4L2m2mPriv *)avctx->priv_data)->context;
++    struct v4l2_format fmt = s->capture.format;
++    struct v4l2_rect visible;
++    unsigned int allocated_width, allocated_height;
++    int ret, have_visible;
++
++    if (ioctl(s->fd, VIDIOC_G_FMT, &fmt) < 0)
++        return AVERROR(errno);
++    if (V4L2_TYPE_IS_MULTIPLANAR(s->capture.type)) {
++        s->capture.width = fmt.fmt.pix_mp.width;
++        s->capture.height = fmt.fmt.pix_mp.height;
++    } else {
++        s->capture.width = fmt.fmt.pix.width;
++        s->capture.height = fmt.fmt.pix.height;
++    }
++    allocated_width = s->capture.width;
++    allocated_height = s->capture.height;
++    /* Venus S_FMT resets inst->crop: save the visible rectangle first. */
++    have_visible = v4l2_save_visible(s, allocated_width, allocated_height, &visible);
++    if (have_visible < 0)
++        return have_visible;
++    ret = ff_set_dimensions(avctx, allocated_width, allocated_height);
++    if (ret < 0)
++        return ret;
++    ret = ff_v4l2_m2m_codec_reinit(s);
++    if (ret < 0)
++        return ret;
++    s->capture.done = 0;
++    ret = v4l2_try_start(avctx);
++    if (ret < 0)
++        return ret;
++    if (have_visible) {
++        /* Only visible frame dimensions change; format/strides stay allocated. */
++        unsigned int width = V4L2_TYPE_IS_MULTIPLANAR(s->capture.type) ?
++                             s->capture.format.fmt.pix_mp.width :
++                             s->capture.format.fmt.pix.width;
++        unsigned int height = V4L2_TYPE_IS_MULTIPLANAR(s->capture.type) ?
++                              s->capture.format.fmt.pix_mp.height :
++                              s->capture.format.fmt.pix.height;
++        if (visible.width > width || visible.height > height)
++            return AVERROR_INVALIDDATA;
++        s->capture.width = avctx->width = visible.width;
++        s->capture.height = avctx->height = visible.height;
++    }
++    s->drc_pending = 0;
++    s->drc_ready = 0;
++    return 0;
++}
++
+ static int v4l2_receive_frame(AVCodecContext *avctx, AVFrame *frame)
+ {
+     V4L2m2mPriv *priv = avctx->priv_data;
+@@ -147,6 +229,10 @@
+     s = priv->context;
+     capture = &s->capture;
+     output = &s->output;
++    if (s->drc_error)
++        return s->drc_error;
++    if (s->drc_ready)
++        goto dequeue;
+ 
+     if (!s->buf_pkt.size) {
+         ret = ff_decode_get_packet(avctx, &s->buf_pkt);
+@@ -181,8 +267,19 @@
+     }
+ 
+ dequeue:
++    if (s->drc_error)
++        return s->drc_error;
++    if (s->drc_ready) {
++        ret = v4l2_finish_drc(avctx);
++        if (ret < 0) {
++            s->drc_error = ret;
++            return ret;
++        }
++    }
+     ret = ff_v4l2_context_dequeue_frame(capture, frame,
+                                          s->buf_pkt.size ? 20 : -1);
++    if (ret == AVERROR(EAGAIN) && s->drc_ready)
++        goto dequeue;
+     if (ret == AVERROR(EAGAIN) && s->buf_pkt.size && !s->draining) {
+         int64_t now = av_gettime_relative();
+ 
+--- a/libavcodec/v4l2_context.c
++++ b/libavcodec/v4l2_context.c
+@@ -83,24 +83,7 @@
+     return sar;
+ }
+ 
+-static inline unsigned int v4l2_resolution_changed(V4L2Context *ctx, struct v4l2_format *fmt2)
+-{
+-    struct v4l2_format *fmt1 = &ctx->format;
+-    int ret =  V4L2_TYPE_IS_MULTIPLANAR(ctx->type) ?
+-        fmt1->fmt.pix_mp.width != fmt2->fmt.pix_mp.width ||
+-        fmt1->fmt.pix_mp.height != fmt2->fmt.pix_mp.height
+-        :
+-        fmt1->fmt.pix.width != fmt2->fmt.pix.width ||
+-        fmt1->fmt.pix.height != fmt2->fmt.pix.height;
+-
+-    if (ret)
+-        av_log(logger(ctx), AV_LOG_DEBUG, "%s changed (%dx%d) -> (%dx%d)\n",
+-            ctx->name,
+-            v4l2_get_width(fmt1), v4l2_get_height(fmt1),
+-            v4l2_get_width(fmt2), v4l2_get_height(fmt2));
+-
+-    return ret;
+-}
++
+ 
+ static inline int v4l2_type_supported(V4L2Context *ctx)
+ {
+@@ -155,77 +138,45 @@
+     }
+ }
+ 
+-static int v4l2_start_decode(V4L2Context *ctx)
+-{
+-    struct v4l2_decoder_cmd cmd = {
+-        .cmd = V4L2_DEC_CMD_START,
+-        .flags = 0,
+-    };
+-    int ret;
+-
+-    ret = ioctl(ctx_to_m2mctx(ctx)->fd, VIDIOC_DECODER_CMD, &cmd);
+-    if (ret)
+-        return AVERROR(errno);
+-
+-    return 0;
+-}
++
+ 
+ /**
+  * handle resolution change event and end of stream event
+- * returns 1 if reinit was successful, negative if it failed
+- * returns 0 if reinit was not executed
++ * Drain queued notifications and update pending DRC state.
++ * Returns 0 when drained, or a negative error; does not reconfigure here.
+  */
+ static int v4l2_handle_event(V4L2Context *ctx)
+ {
+     V4L2m2mContext *s = ctx_to_m2mctx(ctx);
+-    struct v4l2_format cap_fmt = s->capture.format;
+-    struct v4l2_event evt = { 0 };
+-    int ret;
+-
+-    ret = ioctl(s->fd, VIDIOC_DQEVENT, &evt);
+-    if (ret < 0) {
+-        av_log(logger(ctx), AV_LOG_ERROR, "%s VIDIOC_DQEVENT\n", ctx->name);
+-        return 0;
+-    }
+-
+-    if (evt.type == V4L2_EVENT_EOS) {
+-        ctx->done = 1;
+-        return 0;
+-    }
+-
+-    if (evt.type != V4L2_EVENT_SOURCE_CHANGE)
+-        return 0;
+-
+-    ret = ioctl(s->fd, VIDIOC_G_FMT, &cap_fmt);
+-    if (ret) {
+-        av_log(logger(ctx), AV_LOG_ERROR, "%s VIDIOC_G_FMT\n", s->capture.name);
+-        return 0;
+-    }
+-
+-    if (v4l2_resolution_changed(&s->capture, &cap_fmt)) {
+-        s->capture.height = v4l2_get_height(&cap_fmt);
+-        s->capture.width = v4l2_get_width(&cap_fmt);
+-        s->capture.sample_aspect_ratio = v4l2_get_sar(&s->capture);
+-    } else {
+-        v4l2_start_decode(ctx);
+-        return 0;
+-    }
+-
+-    s->reinit = 1;
+-
+-    if (s->avctx)
+-        ret = ff_set_dimensions(s->avctx, s->capture.width, s->capture.height);
+-    if (ret < 0)
+-        av_log(logger(ctx), AV_LOG_WARNING, "update avcodec height and width\n");
+-
+-    ret = ff_v4l2_m2m_codec_reinit(s);
+-    if (ret) {
+-        av_log(logger(ctx), AV_LOG_ERROR, "v4l2_m2m_codec_reinit\n");
+-        return AVERROR(EINVAL);
+-    }
+-
+-    /* reinit executed */
+-    return 1;
++    struct v4l2_event evt;
++
++    /* Drain the event queue before a simultaneously-ready LAST buffer:
++     * an informational EOS can precede the SOURCE_CHANGE notification. */
++    for (;;) {
++        memset(&evt, 0, sizeof(evt));
++        if (ioctl(s->fd, VIDIOC_DQEVENT, &evt) < 0) {
++            if (errno == EINTR)
++                continue;
++            if (errno == ENOENT || errno == EAGAIN)
++                return 0;
++            return AVERROR(errno);
++        }
++        if (evt.type == V4L2_EVENT_EOS && !av_codec_is_decoder(s->avctx->codec)) {
++            ctx->done = 1;
++            continue;
++        }
++        /* Decoder EOS is informational; capture LAST/EPIPE is authoritative. */
++        if (evt.type != V4L2_EVENT_SOURCE_CHANGE ||
++            !(evt.u.src_change.changes & V4L2_EVENT_SRC_CH_RESOLUTION))
++            continue;
++
++        /* Leave old geometry intact until its LAST has been delivered. The
++         * first event is initial discovery even with preconfigured CAPTURE. */
++        s->drc_pending = 1;
++        if (!s->source_change_seen || !s->capture.buffers || !s->capture.streamon)
++            s->drc_ready = 1;
++        s->source_change_seen = 1;
++    }
+ }
+ 
+ static int v4l2_stop_decode(V4L2Context *ctx)
+@@ -292,7 +243,8 @@
+     }
+ 
+     /* if we are draining and there are no more capture buffers queued in the driver we are done */
+-    if (!V4L2_TYPE_IS_OUTPUT(ctx->type) && ctx_to_m2mctx(ctx)->draining) {
++    if (!V4L2_TYPE_IS_OUTPUT(ctx->type) && ctx_to_m2mctx(ctx)->draining &&
++        !av_codec_is_decoder(ctx_to_m2mctx(ctx)->avctx->codec)) {
+         for (i = 0; i < ctx->num_buffers; i++) {
+             /* capture buffer initialization happens during decode hence
+              * detection happens at runtime
+@@ -349,10 +301,12 @@
+     if (pfd.revents & POLLPRI) {
+         ret = v4l2_handle_event(ctx);
+         if (ret < 0) {
+-            /* if re-init failed, abort */
+-            ctx->done = 1;
++            /* Preserve the event failure even if an earlier event set ready. */
++            ctx_to_m2mctx(ctx)->drc_error = ret;
+             return NULL;
+         }
++        if (ctx_to_m2mctx(ctx)->drc_ready)
++            return NULL;
+         if (ret) {
+             /* if re-init was successful drop the buffer (if there was one)
+              * since we had to reconfigure capture (unmap all buffers)
+@@ -388,6 +342,11 @@
+ 
+         ret = ioctl(ctx_to_m2mctx(ctx)->fd, VIDIOC_DQBUF, &buf);
+         if (ret) {
++            if (errno == EPIPE && ctx_to_m2mctx(ctx)->drc_pending &&
++                !V4L2_TYPE_IS_OUTPUT(ctx->type)) {
++                ctx_to_m2mctx(ctx)->drc_ready = 1;
++                return NULL;
++            }
+             if (errno != EAGAIN) {
+                 ctx->done = 1;
+                 if (errno != EPIPE)
+@@ -397,7 +356,37 @@
+             return NULL;
+         }
+ 
+-        if (ctx_to_m2mctx(ctx)->draining && !V4L2_TYPE_IS_OUTPUT(ctx->type)) {
++        if (av_codec_is_decoder(ctx_to_m2mctx(ctx)->avctx->codec) &&
++            !V4L2_TYPE_IS_OUTPUT(ctx->type)) {
++            V4L2m2mContext *s = ctx_to_m2mctx(ctx);
++            int used = V4L2_TYPE_IS_MULTIPLANAR(buf.type) ?
++                       buf.m.planes[0].bytesused : buf.bytesused;
++            if (s->drc_pending && !used &&
++                (buf.flags & V4L2_BUF_FLAG_ERROR) &&
++                !(buf.flags & V4L2_BUF_FLAG_LAST)) {
++                /* DRC flush returned an empty allocation, not a video frame.
++                 * Keep it unqueued and continue to the real LAST boundary. */
++                ctx->buffers[buf.index].status = V4L2BUF_AVAILABLE;
++                goto start;
++            }
++            if (buf.flags & V4L2_BUF_FLAG_LAST) {
++                /* Stop callbacks requeueing old buffers across the boundary. */
++                ff_mutex_lock(&s->queue_lock);
++                s->reinit = 1;
++                ff_mutex_unlock(&s->queue_lock);
++                if (s->drc_pending)
++                    s->drc_ready = 1;
++                else
++                    ctx->done = 1;
++                if (!used) {
++                    ctx->buffers[buf.index].status = V4L2BUF_AVAILABLE;
++                    return NULL;
++                }
++            }
++        }
++
++        if (ctx_to_m2mctx(ctx)->draining && !V4L2_TYPE_IS_OUTPUT(ctx->type) &&
++            !av_codec_is_decoder(ctx_to_m2mctx(ctx)->avctx->codec)) {
+             int bytesused = V4L2_TYPE_IS_MULTIPLANAR(buf.type) ?
+                             buf.m.planes[0].bytesused : buf.bytesused;
+             if (bytesused == 0) {
+@@ -584,6 +573,11 @@
+         ff_mutex_unlock(&s->queue_lock);
+         locked = 0;
+     }
++    if (locked && s->reinit && cmd == VIDIOC_STREAMOFF) {
++        /* Reconfiguration callbacks only release references; do not block them. */
++        ff_mutex_unlock(&s->queue_lock);
++        locked = 0;
++    }
+     ret = s->fd < 0 ? AVERROR(EBADF) : ioctl(s->fd, cmd, &type);
+     if (ret < 0) {
+         if (s->fd >= 0)
+@@ -669,7 +663,11 @@
+      *  1. decoded frame available
+      *  2. an input buffer is ready to be dequeued
+      */
++    if (ctx_to_m2mctx(ctx)->drc_error)
++        return ctx_to_m2mctx(ctx)->drc_error;
+     avbuf = v4l2_dequeue_v4l2buf(ctx, timeout);
++    if (ctx_to_m2mctx(ctx)->drc_error)
++        return ctx_to_m2mctx(ctx)->drc_error;
+     if (!avbuf) {
+         if (ctx->done)
+             return AVERROR_EOF;
+@@ -712,6 +710,8 @@
+ 
+         fmt.update_avfmt = !probe;
+         v4l2_save_to_context(ctx, &fmt);
++        if (!probe && !V4L2_TYPE_IS_OUTPUT(ctx->type))
++            ctx->sample_aspect_ratio = v4l2_get_sar(ctx);
+ 
+         /* format has been tried already */
+         return ret;
+--- a/libavcodec/v4l2_buffers.c
++++ b/libavcodec/v4l2_buffers.c
+@@ -239,7 +239,10 @@
+     V4L2m2mContext *s = buf_to_m2mctx(avbuf);
+ 
+     if (atomic_fetch_sub(&avbuf->context_refcount, 1) == 1) {
++        const V4L2m2mContext *context_ref;
+         ff_mutex_lock(&s->queue_lock);
++        context_ref = avbuf->context_ref;
++        avbuf->context_ref = NULL;
+         atomic_fetch_sub_explicit(&s->refcount, 1, memory_order_acq_rel);
+ 
+         if (s->retired) {
+@@ -258,7 +261,7 @@
+ 
+         /* This unref may destroy the context and its mutex. */
+         ff_mutex_unlock(&s->queue_lock);
+-        av_refstruct_unref(&avbuf->context_ref);
++        av_refstruct_unref(&context_ref);
+     }
+ }
+ 

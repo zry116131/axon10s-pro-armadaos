@@ -225,3 +225,32 @@ v2默认16-buffer快速解码仍失败：最终600帧内容一致，但45秒期�
 独立ffmpeg二进制SHA256 `5218bc86e87d08b316029bc9ff7ab8332a02417034364b3033e90ec65f350657`；same-context测试程序 `3d6e1b74eac89b9f04759f827af4f8e5542d8d43fc7e019cc3799ed449e653ba`；lifetime程序 `7f38379b076fb06845e08f4a7e34221413cd5ef96e83b7c83c4acc96119f8769`，部署后hash核对一致。未替换系统FFmpeg，未启用Steam硬解，未改boot/REC。真实分辨率重配置、长期播放器使用、发行包和Steam自身解码链路接入仍需验收；其他codec/encoder仅共享路径审查，未做实机集成验证。
 
 本轮flush测试后已正常返回#56，USB与SSH复核系统running、游戏模式active、仅2GiB ZRAM、无失败系统服务；无线服务健康无操作退出。GitHub dry-run push返回缺少HTTPS凭据，未进行远端发布，关键节点暂保留本地提交。
+
+## 真实分辨率切换：系统GStreamer通过，FFmpeg提前EOF已定位
+
+连续raw AnnexB H264流：前60帧128×128，后60帧640×360；每段独立SPS/PPS+IDR，8bit420、30fps、B帧。输入SHA256 `3e67117ddc2ad0f29d70fe55585a380839b0724ad271c7b809ade8a6eb4cb55c`。新avcodec直连harness全程一个实例，不seek/flush/reopen，每帧hash后立即释放，不经过filter/encoder。raw流无可靠PTS，本次按序号/可见尺寸/规范化YUV420P hash验收，不将其计作时间戳验收。
+
+#71+token/v2/flush候选：软件120帧正确，硬件仅59帧便自然EOF、退出0；前59帧内容完全一致。AV_LOG_DEBUG显示CAPTURE已从128×128重配置为640×384，但之后立即EOF。最小事件日志进一步确认：SOURCE_CHANGE重配成功后，draining=0时收到V4L2_EVENT_EOS，现有handler把capture.done置1，导致提前返回EOF；没有在该点观察到DQBUF错误。
+
+单独去掉EOS通知直接置done的对照得到119帧：第一尺寸59帧，第二60帧但可见高度误报384。故消除提前EOF还不够，仍需保留切换前最后一帧、读取正确可见裁剪。Linux [stateful decoder接口](https://docs.kernel.org/userspace-api/media/v4l/dev-decoder.html#dynamic-resolution-change)要求切换时处理旧CAPTURE输出至LAST，保持OUTPUT streaming；EOS通知不能代替缓冲排空。Venus G_SELECTION的可见矩形来自CAPTURE+COMPOSE，当前FFmpeg仅在S_SELECTION成功后读取默认CROP，不能取得该值。
+
+同一临时内核、同一文件，系统GStreamer1.28.7显式v4l2h264dec输出120帧且正常EOS。进一步使用videoconvert/I420/appsink按VideoMeta或VideoInfo的offset/stride抽取可见YUV行：120帧、60+60尺寸边界、所有像素MD5与软件完全一致、退出0。这证明当前硬件及系统原生解码链路可处理此样本，尚不能推断Steam CEF或任意播放器已接入硬解。
+
+诊断工具新增video-reconfig.c、video-reconfig-gstreamer.py、compare-video-reconfig.py。GStreamer脚本异常/零帧/超240帧均显式失败，映射finally释放；外部25秒上限。FFmpeg完整DRC修复正在准备，EOS-only对照不作为完成修复发布。
+
+
+## FFmpeg DRC完整候选实机通过（0005）
+
+在0002/0003/0004上增加0005。保留旧分辨率帧至LAST再仅重配CAPTURE；OUTPUT与token表继续使用；EOS事件不提前宣告结束。失败的STREAMOFF保留映射，等待旧引用时重查条件，回调在锁内取走context引用，避免零计数后访问已释放buffer。
+
+实机验收修正了两项模拟假设与一项驱动交互：实际内核v4l2-event.c空队列返回ENOENT，原EAGAIN-only候选零帧退出，现兼容两者并保留EINTR重试/EIO传播；DRC会退回bytesused0、flags0x4041、timestamp0的ERROR非LAST缓冲，原候选在60帧后被严格token检查拒绝，现仅在pending DRC时回收该空缓冲并继续等LAST；Venus S_FMT覆盖inst->crop，故必须在重配前保存COMPOSE，重配后恢复可见尺寸，不能把384行分配高度当360行画面。未放宽真实帧token检查。开启debug日志曾改变时序避开空缓冲失败，因此最终验收使用普通日志版本。
+
+最终独立ARM64编译通过，无本轮新增编译警告。父级复跑三套Linux GCC ASan/UBSan提取实际函数测试通过：event/LAST/错误优先级/空ERROR分支、S_FMT重置crop、flush与并发引用生命周期。第二智能体审查与实机结果分别记录，不用模拟通过替代硬件通过。
+
+- 原120帧：60帧128×128+60帧640×360，所有序号/可见尺寸/YUV420P MD5与软件一致，正常EOF，退出0。
+- 连续180帧：60帧128×128+60帧640×360+60帧128×128，所有像素hash和尺寸与软件一致，正常EOF，退出0。验证放大、缩小与连续两次变化。
+- 原五阶段seek/EOF回归：60/45/45/360/600帧，阶段首尾PTS/hash与软件一致，8次外持旧帧hash检查全部通过，退出0。此项未比对每个中间帧。
+
+最终decode-drc-fixed SHA256 `2681a4113d8782e15ec2241653fdbcd8ac7e1f73ba1e9763b40beb6135e2cf8c`；seek-lifetime-drc `97aa901532c948216c8bb2b543301f2e4df4aa2faf0c1100d847d5031a71e83b`。部署后hash核对一致。未替换系统库、未打开Steam硬解、未改boot/REC。
+
+限制：raw流无可靠PTS，DRC只验帧内容/顺序/尺寸；DRC测试不跨尺寸保留旧外部帧；同线程持旧帧继续请求重配仍可能等待；原多memory-plane计数问题未混入修复；本机NV12为单memory-plane。不能据此宣称所有播放器、Steam CEF、其他codec/encoder已修复。
