@@ -324,5 +324,22 @@
     "seek_tested": false,
     "record": "docs/VIDEO-DECODE-TRIALS.md",
     "recovered_to_build": 56
+  },
+  "video_frame_ledger_trial": {
+    "build": 69,
+    "temporary_boot_only": true,
+    "installed": false,
+    "realtime600_exact_match": true,
+    "early_corruption_reproduced": false,
+    "early_corruption_fixed": false,
+    "dpb_allocated": 18,
+    "dpb_initial_submissions_succeeded": 18,
+    "unmatched_dpb_returns": 0,
+    "fbd_samples": 128,
+    "ebd_samples": 80,
+    "nonzero_sampled_firmware_errors": 0,
+    "logging_timing_effect_not_excluded": true,
+    "record": "docs/VIDEO-DECODE-TRIALS.md",
+    "recovered_to_build": 56
   }
 }
