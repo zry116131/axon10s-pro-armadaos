@@ -87,11 +87,12 @@
   "zram_mib": 2048,
   "zram_compressor": "lz4",
   "video_decode": {
-    "status": "scratch2_requirements_investigation_after_diagnostic_timeout",
+    "status": "output_buffer_configuration_investigation_scratch2_hypothesis_rejected",
     "temporary_candidates_tested": [
       46,
       47,
-      48
+      48,
+      49
     ],
     "installed_candidate": false,
     "steam_hardware_video_decoding_enabled": false,
