@@ -4,7 +4,7 @@
   "publication_type": "documentation_snapshot",
   "device_count": 1,
   "installed_kernel_build": 54,
-  "live_temporary_kernel_build": null,
+  "live_temporary_kernel_build": 56,
   "kwin": "6.7.5-1.fc44.armada",
   "sleep_policy": "fake",
   "native_powerkey_wake_accepted": false,
@@ -59,7 +59,7 @@
       "public_download_available": false
     }
   ],
-  "live_kernel_build": 54,
+  "live_kernel_build": 56,
   "normal_reboot_runtime_verified": true,
   "normal_reboot_physical_confirmation": "pending for #54; software checks passed after normal reboot",
   "long_term_stability_accepted": false,
@@ -135,5 +135,16 @@
     "physical_key_events_verified": false,
     "record": "docs/PON-VALIDATION.md",
     "installed_normal_reboot_verified": true
+  },
+  "dsi_clock": {
+    "diagnostic_trial": 55,
+    "fix_trial": 56,
+    "boot_pll_timeout_and_double_disable_resolved_in_trial": true,
+    "active_clock_rates_match_baseline": true,
+    "gamemode_restart_verified": true,
+    "physical_screen_touch_verified": false,
+    "panel_power_cycle_verified": false,
+    "installed": false,
+    "record": "docs/DSI-CLOCK-TRIALS.md"
   }
 }

@@ -1,0 +1,42 @@
+--- a/drivers/clk/clk.c
++++ b/drivers/clk/clk.c
+@@ -3845,9 +3845,37 @@
+ 		 * are enabled during init but might not have a parent yet.
+ 		 */
+ 		if (parent) {
++			bool axon_reparented = false;
++
++			/*
++			 * This board's idle pixel mux already selects the DSI PLL
++			 * when its provider appears. No hardware parent change or
++			 * reference migration is needed. Avoid starting the still
++			 * unconfigured PLL solely to attach this unused orphan.
++			 * Keep normal parent-enable semantics for every other case.
++			 */
++			if (of_machine_is_compatible("zte,axon10s-pro") &&
++			    !strcmp(orphan->name, "disp_cc_mdss_pclk0_clk_src") &&
++			    !strcmp(parent->name, "dsi0_phy_pll_out_dsiclk")) {
++				unsigned long flags = clk_enable_lock();
++
++				if (!orphan->parent && !orphan->prepare_count &&
++				    !orphan->enable_count && !parent->prepare_count &&
++				    !parent->enable_count) {
++					clk_reparent(orphan, parent);
++					axon_reparented = true;
++				}
++				clk_enable_unlock(flags);
++			}
++
+ 			/* update the clk tree topology */
+-			__clk_set_parent_before(orphan, parent);
+-			__clk_set_parent_after(orphan, parent, NULL);
++			if (axon_reparented)
++				pr_info("AXON_DSI_IDLE_ORPHAN_ATTACHED child=%s parent=%s\n",
++					orphan->name, parent->name);
++			else {
++				__clk_set_parent_before(orphan, parent);
++				__clk_set_parent_after(orphan, parent, NULL);
++			}
+ 			__clk_recalc_accuracies(orphan);
+ 			__clk_recalc_rates(orphan, true, 0);
+ 
