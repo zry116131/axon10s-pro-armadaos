@@ -1,5 +1,7 @@
 # Steam 冻结取证
 
+视频故障使用独立工具 `check-video-boundary.py INPUT NEW_OUTPUT_DIR --frames 300`，默认仅软件解码。只有验证过的临时视频内核才可传 `--hardware-kernel 精确uname版本`，可加 `--realtime`。当前稳定#56没有视频节点，工具会拒绝硬件路径。工具不会修改电源、固件或Steam设置。输出包列表描述整个输入文件，不能当成硬件实际消费包的追踪；最后输出帧也不直接等于触发故障的输入包。完整软件/硬件退出成功、帧数满足请求且逐帧相同才返回比较成功。详细实测范围见 `docs/VIDEO-DECODE-TRIALS.md`。
+
 在准备复现之前以 root 执行 capture-freeze.py --output 新文件.jsonl --seconds 180 --cef-log /home/armada/.local/share/Steam/logs/cef_log.txt。不注册开机服务；到时退出。输出文件不得已存在，权限0600，上限8MiB。
 
 每秒记录关键进程/线程的CPU时间、等待位置、GPU相关内核栈函数名、内存/PSI/共享内存、内核故障分类、CEF新增白名单事件时间戳。不保存网页、完整命令行或原始日志，不使用ptrace或停止进程，不改变watchdog。CEF每轮最多读取32KiB，支持轮换和截断。
