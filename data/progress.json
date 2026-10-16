@@ -94,12 +94,15 @@
       48,
       49,
       50,
-      51
+      51,
+      52,
+      53
     ],
     "installed_candidate": false,
     "steam_hardware_video_decoding_enabled": false,
     "evidence": "docs/VIDEO-DECODE-TRIALS.md",
-    "last_trial_recovered_to_build": 45
+    "last_trial_recovered_to_build": 45,
+    "firmware_power_plane_disable_trial": "failed_no_frames_and_idle_timeout"
   },
   "boot_success": {
     "installed_build": 45,
