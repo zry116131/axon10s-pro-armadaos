@@ -1,0 +1,82 @@
+--- a/drivers/media/platform/qcom/venus/vdec.c
++++ b/drivers/media/platform/qcom/venus/vdec.c
+@@ -4,10 +4,12 @@
+  * Copyright (C) 2017 Linaro Ltd.
+  */
+ #include <linux/clk.h>
++#include <linux/dma-mapping.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_runtime.h>
++#include <linux/sizes.h>
+ #include <linux/slab.h>
+ #include <media/v4l2-ioctl.h>
+ #include <media/v4l2-event.h>
+@@ -21,6 +23,8 @@
+ #include "helpers.h"
+ #include "vdec.h"
+ #include "pm_helpers.h"
++
++#define VDEC_EOS_BUF_SIZE SZ_4K
+ 
+ /*
+  * Three resons to keep MPLANE formats (despite that the number of planes
+@@ -582,11 +586,23 @@
+ 			 inst->core->venus_ver.major == 1 &&
+ 			 inst->core->venus_ver.minor == 0 &&
+ 			 inst->core->venus_ver.rev == 90 &&
+-			 inst->hfi_codec == HFI_VIDEO_CODEC_H264)
+-			/* Stock Axon 1.0.90 H264 firmware faults on the dummy EOS address. */
+-			fdata.device_addr = 0;
+-		else
++			 inst->hfi_codec == HFI_VIDEO_CODEC_H264) {
++			/* A mapped EOS buffer follows the upstream real-buffer proposal. */
++			if (!inst->eos_va) {
++				inst->eos_va = dma_alloc_attrs(inst->core->dev,
++						       VDEC_EOS_BUF_SIZE,
++						       &inst->eos_da, GFP_KERNEL,
++						       DMA_ATTR_NO_KERNEL_MAPPING);
++				if (!inst->eos_va) {
++					ret = -ENOMEM;
++					goto unlock;
++				}
++			}
++			fdata.device_addr = inst->eos_da;
++			fdata.alloc_len = VDEC_EOS_BUF_SIZE;
++		} else {
+ 			fdata.device_addr = 0xdeadb000;
++		}
+ 
+ 		ret = hfi_session_process_buf(inst, &fdata);
+ 
+@@ -1797,6 +1813,9 @@
+ 	cancel_work_sync(&inst->delayed_process_work);
+ 	venus_close_common(inst, file);
+ 	ida_destroy(&inst->dpb_ids);
++	if (inst->eos_va)
++		dma_free_attrs(inst->core->dev, VDEC_EOS_BUF_SIZE, inst->eos_va,
++			       inst->eos_da, DMA_ATTR_NO_KERNEL_MAPPING);
+ 	vdec_pm_put(inst, false);
+ 
+ 	kfree(inst);
+--- a/drivers/media/platform/qcom/venus/core.h
++++ b/drivers/media/platform/qcom/venus/core.h
+@@ -457,6 +457,8 @@
+  * @drain_active:	Drain sequence is in progress
+  * @flags:	bitmask flags describing current instance mode
+  * @dpb_ids:	DPB buffer ID's
++ * @eos_va:	kernel cookie for the decoder EOS DMA allocation
++ * @eos_da:	device address for the decoder EOS DMA allocation
+  */
+ struct venus_inst {
+ 	struct list_head list;
+@@ -528,6 +530,8 @@
+ 	bool drain_active;
+ 	enum venus_inst_modes flags;
+ 	struct ida dpb_ids;
++	void *eos_va;
++	dma_addr_t eos_da;
+ };
+ 
+ #define IS_V1(core)	((core)->res->hfi_version == HFI_VERSION_1XX)
