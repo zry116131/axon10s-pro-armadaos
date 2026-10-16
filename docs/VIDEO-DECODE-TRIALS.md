@@ -298,3 +298,23 @@ GStreamer显式v4l2vp8dec/v4l2vp9dec，demux后每包节流33333微秒，计划�
 #72不作为修复安装，失败补丁仅存docs/experiments/72-vpx-input-size-FAILED.patch，不属于推荐runtime补丁链。固件随后报告recovered，不能用恢复成功宣称故障修复。下一步应核对VPx初始化/输出格式等实际协议差异。没有证据支持直接添加IVF头：主线要求压缩视频帧；所查官方AOSP Qualcomm OMX的IVF写入仅用于调试文件，且并非同机SM8250版本，私有固件额外约定仍未知。
 
 #72试验后正常返回#56，SSH确认running、游戏模式active、0失败服务、仅2GiB ZRAM；settingsStore确认视频硬解false、GPU网页加速true。boot/REC未修改，#72仅保留实验镜像及失败证据。
+
+
+## #73 VPx pre-input buffer requirements query
+
+Diagnostic based on #71, restricted to Axon10s/SM8250/HFI6/FW1.0.90/VP8 or VP9. Sets actual input dimensions, queries firmware after set_num_bufs but before resource loading/input, logs host calculations, and deliberately returns -ECANCELED. This prevents VPx decoding and is not an installable repair. Extracted actual-function ASan/UBSan, independent review, build and DT/initramfs48/DSI56 preservation checks passed. Temporary image SHA256: `1f08d0bb5f1766cdf77c6a5a9705094f7bab3e8c27e51d868c20a51db4f8428f`.
+
+Both hardware queries completed with query_ret=0, all host calls=0, and explicit query-only stop. Each probe returned exit1/zero frames as intended cancellation, not successful decoding. VP8 and VP9 P0 were 320x240, capture aligned320x256, input_count4, output_count8/11. bit_depth field0 is pre-header state, not the known8-bit fixture depth. One earlier VP9 attempt used a nonexistent filename and failed before querying; only the corrected vp9-p0.webm run counts. Captured kernel log contains no known SFR/Err_Fatal.
+
+Internal per-buffer bytes, firmware / host:
+
+|Codec|SCRATCH type6|SCRATCH1 type7|PERSIST1 type5|
+|---|---:|---:|---:|
+|VP8|5652480 / 5652480|78528 / 80896|23040 / 23040|
+|VP9|5652480 / 5652480|79360 / 81408|9011712 / 9068288|
+
+Internal actual counts all1; firmware did not return additional nonzero PERSIST/SCRATCH2. Both codecs DPB size155648/176128, linear OPB147456/147456. No observed host internal underallocation: do not replace static sizes or enlarge buffers based on these results. Raw fields: experiments/73-vpx-buffer-requirements.json; diagnostic patch: experiments/73-vpx-query-only-DIAGNOSTIC.patch.
+
+These are current pre-header requirements, not final DPB demand. FW OUTPUT/OUTPUT2 counts32 follow earlier set_num_bufs32; host actual1 is not application queue length. Query success does not establish resource loading or decode success. Next bounded hypothesis: compare requirements before/after count declaration to establish whether32 is configuration echo, then assess actual registered DPB counts. No justification yet for forcing32 DPBs. Steam global hardware video remains off; boot/REC unchanged.
+
+After the query trial, normal reboot restored installed #56 (7.2.6-axon10s-dsiclkfix1). SSH verified system running, game-mode user service active, no failed system units, and only2GiB ZRAM swap.

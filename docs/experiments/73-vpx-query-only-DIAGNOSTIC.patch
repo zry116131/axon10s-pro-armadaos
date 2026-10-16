@@ -1,0 +1,117 @@
+--- a/drivers/media/platform/qcom/venus/vdec.c
++++ b/drivers/media/platform/qcom/venus/vdec.c
+@@ -1156,6 +1156,103 @@
+ 						 inst->out_height);
+ }
+ 
++/* Query-only experiment: never load resources or submit VPx input. */
++static bool vdec_axon_vpx_query_match(struct venus_inst *inst)
++{
++	return of_machine_is_compatible("zte,axon10s-pro") &&
++		of_device_is_compatible(inst->core->dev->of_node,
++					"qcom,sm8250-venus") &&
++		inst->session_type == VIDC_SESSION_TYPE_DEC &&
++		inst->core->res->hfi_version == HFI_VERSION_6XX &&
++		inst->core->venus_ver.major == 1 &&
++		inst->core->venus_ver.minor == 0 &&
++		inst->core->venus_ver.rev == 90 && inst->fmt_out &&
++		(inst->fmt_out->pixfmt == V4L2_PIX_FMT_VP8 ||
++		 inst->fmt_out->pixfmt == V4L2_PIX_FMT_VP9);
++}
++
++static void vdec_axon_log_req(struct venus_inst *inst, const char *origin,
++			    unsigned int index,
++			    struct hfi_buffer_requirements *req)
++{
++	u32 ver = inst->core->res->hfi_version;
++
++	dev_info(inst->core->dev,
++		 "AXON_VPX_REQ %s index=%u type=%u size=%u region=%u raw_hold=%u raw_min=%u actual=%u contiguous=%u align=%u hold=%u min=%u min_host=%u\n",
++		 origin, index, req->type, req->size, req->region_size,
++		 req->hold_count, req->count_min, req->count_actual,
++		 req->contiguous, req->alignment,
++		 hfi_bufreq_get_hold_count(req, ver),
++		 hfi_bufreq_get_count_min(req, ver),
++		 hfi_bufreq_get_count_min_host(req, ver));
++}
++
++static int vdec_axon_vpx_query_stop(struct venus_inst *inst)
++{
++	static const u32 host_types[] = {
++		HFI_BUFFER_INPUT, HFI_BUFFER_OUTPUT, HFI_BUFFER_OUTPUT2,
++		HFI_BUFFER_INTERNAL_SCRATCH(HFI_VERSION_6XX),
++		HFI_BUFFER_INTERNAL_SCRATCH_1(HFI_VERSION_6XX),
++		HFI_BUFFER_INTERNAL_SCRATCH_2(HFI_VERSION_6XX),
++		HFI_BUFFER_INTERNAL_PERSIST, HFI_BUFFER_INTERNAL_PERSIST_1,
++	};
++	union hfi_get_property prop = {};
++	struct hfi_buffer_requirements host;
++	u32 saved_min;
++	unsigned int i;
++	int ret;
++
++	if (!vdec_axon_vpx_query_match(inst))
++		return 0;
++	if (!inst->out_width || !inst->out_height ||
++	    inst->out_width < frame_width_min(inst) ||
++	    inst->out_width > frame_width_max(inst) ||
++	    inst->out_height < frame_height_min(inst) ||
++	    inst->out_height > frame_height_max(inst))
++		return -EINVAL;
++
++	dev_info(inst->core->dev,
++		 "AXON_VPX_REQ codec=%#x fw=%u.%u.%u capture_aligned=%ux%u compressed=%ux%u opb_type=%u opb_fmt=%#x dpb_fmt=%#x fw_min=%u input_count=%u output_count=%u pic_struct=%u bit_depth=%u\n",
++		 inst->fmt_out->pixfmt, inst->core->venus_ver.major,
++		 inst->core->venus_ver.minor, inst->core->venus_ver.rev,
++		 inst->width, inst->height, inst->out_width, inst->out_height,
++		 inst->opb_buftype, inst->opb_fmt, inst->dpb_fmt, inst->fw_min_cnt,
++		 inst->num_input_bufs, inst->num_output_bufs,
++		 inst->pic_struct, inst->bit_depth);
++	ret = venus_helper_set_input_resolution(inst, inst->out_width,
++						inst->out_height);
++	dev_info(inst->core->dev, "AXON_VPX_REQ set_input=%ux%u ret=%d\n",
++		 inst->out_width, inst->out_height, ret);
++	if (ret)
++		return ret < 0 ? ret : -EIO;
++
++	ret = hfi_session_get_property(inst,
++			HFI_PROPERTY_CONFIG_BUFFER_REQUIREMENTS, &prop);
++	dev_info(inst->core->dev, "AXON_VPX_REQ query_ret=%d\n", ret);
++	if (ret)
++		return ret < 0 ? ret : -EIO;
++
++	for (i = 0; i < HFI_BUFFER_TYPE_MAX; i++)
++		if (prop.bufreq[i].type)
++			vdec_axon_log_req(inst, "fw", i, &prop.bufreq[i]);
++
++	/* Known HFI6 VPx types use the host calculator. Preserve fw_min_cnt,
++	 * which the public helper can update when querying OUTPUT requirements. */
++	for (i = 0; i < ARRAY_SIZE(host_types); i++) {
++		memset(&host, 0, sizeof(host));
++		saved_min = inst->fw_min_cnt;
++		ret = venus_helper_get_bufreq(inst, host_types[i], &host);
++		inst->fw_min_cnt = saved_min;
++		dev_info(inst->core->dev, "AXON_VPX_REQ host_type=%u ret=%d\n",
++			 host_types[i], ret);
++		if (ret)
++			return ret < 0 ? ret : -EIO;
++		vdec_axon_log_req(inst, "host", i, &host);
++	}
++	dev_info(inst->core->dev, "AXON_VPX_REQ query-only stop before load/input\n");
++	return -ECANCELED;
++}
++
+ static int vdec_start_output(struct venus_inst *inst)
+ {
+ 	int ret;
+@@ -1214,6 +1311,10 @@
+ 
+ 	ret = venus_helper_set_num_bufs(inst, inst->num_input_bufs,
+ 					VB2_MAX_FRAME, VB2_MAX_FRAME);
++	if (ret)
++		return ret;
++
++	ret = vdec_axon_vpx_query_stop(inst);
+ 	if (ret)
+ 		return ret;
+ 
