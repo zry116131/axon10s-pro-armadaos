@@ -85,5 +85,15 @@
   "disk_swap_mib": 2048,
   "gpu_freeze_root_cause_resolved": false,
   "zram_mib": 2048,
-  "zram_compressor": "lz4"
+  "zram_compressor": "lz4",
+  "video_decode": {
+    "status": "firmware_runtime_exception_under_investigation",
+    "temporary_candidates_tested": [
+      46,
+      47
+    ],
+    "installed_candidate": false,
+    "steam_hardware_video_decoding_enabled": false,
+    "evidence": "docs/VIDEO-DECODE-TRIALS.md"
+  }
 }

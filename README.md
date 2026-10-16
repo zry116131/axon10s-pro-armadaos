@@ -39,6 +39,7 @@
 
 - [镜像下载、适用范围与校验](docs/IMAGES.md)
 
+- [视频硬解试验与当前边界](docs/VIDEO-DECODE-TRIALS.md)
 - [USB HUB 修复与验收](docs/USB-HOST.md)
 - [实际移植经验与踩坑记录](docs/EXPERIENCE.md)
 - [硬件与功能支持矩阵](docs/STATUS.md)
