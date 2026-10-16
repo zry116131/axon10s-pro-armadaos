@@ -247,5 +247,21 @@
     "sfr_reproduced": true,
     "hardware_decode_fixed": false,
     "record": "docs/VIDEO-DECODE-TRIALS.md"
+  },
+  "video_eos_trial": {
+    "build": 67,
+    "temporary_boot_only": true,
+    "installed": false,
+    "actual_firmware": "1.0.90",
+    "default_dummy_eos_sfr_reproduced": true,
+    "null_eos_full360_exact_match": true,
+    "null_eos_fresh_boot_first_session_pass": true,
+    "null_eos_truncated300_exact_match": true,
+    "reverse_dummy_eos_failed": true,
+    "production_candidate_validated": false,
+    "early_frame_corruption_root_cause_resolved": false,
+    "steam_hardware_video_enabled": false,
+    "record": "docs/VIDEO-DECODE-TRIALS.md",
+    "recovered_to_build": 56
   }
 }
