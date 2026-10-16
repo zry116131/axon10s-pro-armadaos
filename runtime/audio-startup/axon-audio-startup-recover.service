@@ -1,0 +1,18 @@
+[Unit]
+Description=Bounded Axon VA audio startup recovery
+After=systemd-udev-trigger.service systemd-modules-load.service
+ConditionPathExists=/sys/bus/platform/drivers/va_macro
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/axon-audio-startup-recover.py
+TimeoutStartSec=45
+TimeoutStopSec=2
+KillMode=control-group
+Restart=no
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target axon-test.target

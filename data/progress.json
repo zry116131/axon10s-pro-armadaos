@@ -204,6 +204,10 @@
     "trial64_startup_reprobe_recovered": true,
     "trial64_soundwire_warning_unresolved": true,
     "ucm_installed_on_fallback_build": 56,
-    "ucm_sha256": "1e6d8b8dccabecc385c41cc362b9780833741550e791833b21a24663b005922a"
+    "ucm_sha256": "1e6d8b8dccabecc385c41cc362b9780833741550e791833b21a24663b005922a",
+    "startup_recovery_safeguard_installed": true,
+    "startup_recovery_failing_boot_verified": false,
+    "startup_recovery_normal_boot_noop_verified": true,
+    "startup_vote_timeout_root_cause_resolved": false
   }
 }

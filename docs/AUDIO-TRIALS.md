@@ -109,3 +109,11 @@ BOB 仍为 3032 mV，S4A 1800 mV；ADC1、ADC1_MIXER 均 off，TX DEC0 MUX 为�
 随后恢复 #56，修正版 UCM 再经真实 libasound 和 WirePlumber 回退分支验证：仅 Speaker/sink 与其 monitor，无 Mic/source。测试覆盖已撤销，原系统 UCM 保持不变。#56 TFA 声卡恢复，systemd 无失败单元。
 
 完成上述双版本验证后，UCM 修复已持久化至系统配置，SHA256 `1e6d8b8dccabecc385c41cc362b9780833741550e791833b21a24663b005922a`。替换前逐字节核对原文件并备份到 `/var/lib/axon-audio-backup/ZTE-Axon10s-HiFi-speaker-only.conf`，原子替换后校验新文件与备份。无环境覆盖的真实 UCM 加载通过；#56 仍仅有扬声器通道，Steam 独立游戏模式 active、仅2GiB ZRAM、无失败系统服务。采集内核仍未安装，boot/REC未改动。
+
+## 有界启动恢复与 SoundWire 诊断边界
+
+增加 `runtime/audio-startup/` 恢复措施并部署：本机身份、VA 节点/寄存器/驱动、Q6AFE、两个 deferred supplier、相邻的 vote(3)/VA -110 日志全部匹配时，每次启动最多一次 VA reprobe。未绑定正常设备不做广泛重探测；缺证据中止。用户态等待有界，无法强制终止内核不可中断 I/O。该措施尚未解决首次 APR 超时根因。
+
+实机核对纠正了 APR 总线路径（`aprbus`），并为当前实际启动的 `axon-test.target` 增加启动关系。#56 条件跳过且无 attempt marker；#64 正常临时启动时服务自动执行，检测 VA 已绑定后直接退出，无 marker、无重探测，持久化 UCM 自动建立 Speaker/Mic。自动恢复失败启动的分支仍待实机验证，不能以正常启动跳过冒充恢复验收。
+
+源码审查发现 SoundWire bit9 警告打印后立即屏蔽该中断；普通 runtime resume 不重新开启。因此后续没有警告不能证明故障未复发。`qualcomm-registers` debugfs 整表读取还会触及读 FIFO，不能作为无副作用诊断；本轮采集脚本只读 PCM 状态与 DAPM，没有读取该寄存器表。下一步诊断应保持现有控制流，仅记录已有 IRQ 状态和相关读命令元数据。
