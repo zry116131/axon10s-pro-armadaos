@@ -8,7 +8,7 @@
   "kwin": "6.7.5-1.fc44.armada",
   "sleep_policy": "fake",
   "native_powerkey_wake_accepted": false,
-  "permanent_combined_drm_gamemode_accepted": false,
+  "permanent_combined_drm_gamemode_accepted": true,
   "open_issue_ids": [
     "AXON-001",
     "AXON-002",
@@ -39,5 +39,6 @@
   ],
   "live_kernel_build": 43,
   "normal_reboot_runtime_verified": true,
-  "normal_reboot_physical_confirmation": "pending"
+  "normal_reboot_physical_confirmation": "passed: user confirmed Steam Game Mode and touch normal",
+  "long_term_stability_accepted": false
 }
