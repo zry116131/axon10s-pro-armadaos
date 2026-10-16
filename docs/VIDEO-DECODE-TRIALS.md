@@ -194,3 +194,7 @@ v2默认16-buffer快速解码仍失败：最终600帧内容一致，但45秒期�
 针对此前无线启动board文件读取-2，部署了严格限定设备、错误签名及固件hash的一次性恢复服务。健康状态实机无操作检查通过；实际故障启动时自动恢复仍待观察，不能视作底层原因已修复。
 
 本轮发送正常重启以返回已安装#56后，SSH暂时超时且Mac未枚举到USB命令口；尚未确认返回成功，需恢复连接后补充验证。boot/REC未改写。
+
+后续连接已恢复：USB及SSH均确认返回#56，系统running、游戏模式active、仅2GiB ZRAM、无失败系统服务。无线恢复服务开机执行并检测到接口已存在，成功无操作退出。上一启动日志到systemd-shutdown/journal停止为止，包含/tmp卸载busy与watchdog超时设置失败，尚不能解释整个重启耗时；不再将暂时失联记作未恢复。
+
+进一步源码审查发现 FFmpeg 8.1.3 h264_v4l2m2m 未注册 flush 回调。通用 avcodec_flush_buffers 不清理私有 pending 包、draining 或硬件队列；capture重配置保留token映射并不等于同会话seek支持。此前初始-ss验收不能覆盖运行中的播放器拖动进度。正准备同一AVCodecContext的中途seek和EOF后seek对照，禁止关闭重开掩盖此缺口。
