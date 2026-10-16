@@ -350,3 +350,29 @@ The failure is now tied to resource-loading/state transition, not established as
 Independent source review confirms internal allocation/registration precedes synchronous hfi_session_load_res; START and initial ETB follow successful load. No normal double-LOAD path found: initial DEINIT starts resources, capture reconfiguration uses CONTINUE. Downstream also uses init_done -> LOAD -> START, with no VPx skip; do not remove LOAD. The earlier110s session-only probe and133s fresh session creation are distinct attempts, not proof of reused loaded session. Source: https://android.googlesource.com/kernel/msm/+/9b46d8c49a673cca641aef1c83f409e83cd88f18/drivers/media/platform/msm/vidc/msm_vidc_common.c#3913 . Next compare pre-load properties and internal buffer registration sequence.
 
 After#75, normal reboot restored installed#56. USB/SSH verified system running, game mode active, no failed system services, only2GiB ZRAM. Steam settings readback after initialization: video=false/webviews=true. No boot/REC or persistent verbosity changes.
+
+
+## Empty-queue isolation and rejected#76 profile initialization
+
+A small direct V4L2 probe sets OUTPUT320x240 VP8/H264 and CAPTURE NV12, allocates OUTPUT MMAP buffers, then STREAMON with no QBUF, MMAP, bitstream, EOS/DECODER_CMD or CAPTURE stream. Driver min_queued_buffers0 invokes LOAD/START; success is immediately STREAMOFF/released/closed, failure closes, external timeout15s+kill2s. Format/readback logged; source saved as experiments/76-empty-load-probe.c.
+
+Baseline#75 H264 empty STREAMON succeeded, exit0. VP8 empty STREAMON returned EIO, exit1; FW LOAD InvalidState4 at47.415331 then same SFR47.520537. No data was ever submitted, so this instance is independent of video content, GStreamer and translation. CAPTURE320x256/147456B, OUTPUT size491520,4 allocated, colorspace0. H264 also printed an output2 insufficient-memory debug message with equal sizes147456 while succeeding; that line alone is not an allocation failure verdict.
+
+Pre-load source comparison found internal registration types/order/SET_BUFFERS layout equivalent to pinned Qualcomm: SCRATCH/1/2 then PERSIST/1, one-buffer packets36B. Downstream preallocates DPB, but dynamic mode does not register it before LOAD and FTB remains after START. No basis for blind pre-load DPB registration. Two property differences remained: explicit profile/level and secondary output ordering.
+
+#76 tested only explicit downstream defaults before other vdec properties, exact Axon/SM8250/HFI6/FW1.0.90/DEC/VP8-or-VP9 guard. VP8 HFI MAIN=1/LEVEL_VERSION3=8 (not legacy PROFILE_VERSION3); VP9 P0=1/LEVEL61=0x800. All other code based#71, plus#75 bounded logger. Actual-helper ASan/UBSan, independent review, kernel compile and preservation passed. Image SHA256 `b67f377f237a9c7d5989dbae77dc36f10bc494766fdd6356062fda5b56815a35`.
+
+Actual#76 VP8 empty STREAMON still EIO/exit1, same LOAD InvalidState4 at46.145496 and SFR46.236585. Profile-only candidate rejected; no VP9 decode or full stream tests warranted by this failure. Patch saved only as experiments/76-vpx-profile-FAILED.patch, not production chain. Next single-variable candidate restores#71 and changes only DPB/secondary-output property order; do not compound the failed profile change.
+
+
+## Rejected#77 secondary-output ordering
+
+Based on#71 (without failed#76 profile change), changed only exact Axon/SM8250/HFI6/FW1.0.90/DEC/VP8-or-VP9 secondary layout OPB=OUTPUT2/DPB=OUTPUT: set DPB raw format, enable OUTPUT2, disable OUTPUT. Nonmatching path retains original multistream helper then raw-format order. All failures propagate, sizes/counts/dynamic-mode/resource registration unchanged. Actual-helper ASan/UBSan, independent review, compile and preservation passed. Same bounded#75 logger. Image SHA256 `8359ab30e67005063129ab5dd95e1b9b4ec6121f03573311452cb54ef56f3cdb`.
+
+Actual VP8 empty-queue probe still STREAMON EIO/exit1. FW LOAD at35.473515, InvalidState4 at35.474042, same SFR35.563712. No QBUF or bitstream. Order-only hypothesis therefore rejected; patch retained only as experiments/77-vpx-secondary-order-FAILED.patch. A combined profile/order candidate remains untested; individual failures do not rule out an interaction. No full decode test was run after empty-load failure. All trials temporary, debug level reset0x18, boot/REC unchanged.
+
+The empty-queue probe and H264 control are now the minimal reproduction for pre-decode resource-load failure. Next source audit must verify actual primary/secondary buffer allocation-mode values, not infer them from a conditional branch alone.
+
+After#77, normal reboot restored installed#56. USB/SSH verify system running, game-mode user unit active, no failed system units, only2GiB ZRAM; settings video=false/webviews=true. Neither#76 nor#77 installed.
+
+Allocation-mode audit correction: helper-level calls do not prove wire behavior. Current HFI6 serializer falls through4xx; PARAM_BUFFER_ALLOC_MODE returns-ENOTSUPP, and venus_session_set_property treats it as success without queue write. Thus mainline does not actually send dynamic OUTPUT/OUTPUT2. Pinned downstream OUTPUT_PORT=STATIC is compressed input, not DPB; CAPTURE_PORT=DYNAMIC skips the DPB STATIC pre-registration branch. No allocation-mode send was found in those downstream paths, and firmware default cannot be inferred from them. No mode-change candidate warranted.
