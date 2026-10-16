@@ -53,3 +53,15 @@ WCD 驱动不主动设置或校验 BOB 输入电压；1–2.85 V 的校验针对
 后续源码审查找到高度匹配的原因：#60 的生成工具把 capture 子树放在 `/sound` 最前面，而 common/ASoC 按此顺序建立并探测组件。q6routing 因而先于 q6asm 的 MM_DL/MM_UL widgets 加载，缺失 widget 的返回值正是 `-ENODEV`。属性值相同的检查没有覆盖这个结构顺序约束。下一候选仅将 capture 子树追加到原 TFA 之后，并增加顺序验证；在实机复测前仍保留“疑似根因”结论。
 
 #60 测试后已正常重启回 #56：TFA 声卡恢复，Steam 独立游戏模式 active，仅 2 GiB ZRAM，systemd 无失败单元。未将 #60 写入启动分区。
+
+## #61：修正顺序后声卡绑定通过
+
+对 #60 只移动 capture 子树至原 TFA 子树之后，并改变版本标识；DT 属性字节、其他节点相对顺序、capture 内部顺序和 initramfs 均不变。原始 token 子树移动可逆，逆向操作逐字节恢复 #60 DT。编译、打包和顺序敏感检查通过。临时镜像 SHA256：`772274e8322d845306c67416bb010eaa6cb98f432bb098f842566cad94f293f2`。
+
+实机声卡成功注册，WCD 采集控件出现，#60 的缺路由错误与 instantiate -19 消失，支持其由生成工具改变节点顺序导致。保留 TFA 声卡，Steam 独立游戏模式 active，USB/SSH/Wi-Fi 可用，systemd 无失败单元。此次未做扬声器实听或录音验收。
+
+`TX0 MODE` 显示 ADC_ULP1/2，`RX HPH Mode` 显示 CLS_H_HIFI，证明驱动选择了 9385 分支；鉴于现有 EFUSE 错误处理缺陷，不把这当作无条件型号确认。独立修复已完成 ARM64 单对象编译，无警告，尚未纳入 #61。
+
+BOB 仍为 3032 mV，S4A 1800 mV；ADC1、ADC1_MIXER 均 off，TX DEC0 MUX 为默认值。未增加模拟路由或打开录音流，实际麦克风通路尚未验证。#61 仅临时启动，未写入 boot/REC。
+
+#61 测试后已正常重启回已安装 #56，复核 TFA 声卡、Steam 游戏模式与仅 2 GiB ZRAM 正常，systemd 无失败单元。

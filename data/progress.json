@@ -161,7 +161,8 @@
       57,
       58,
       59,
-      60
+      60,
+      61
     ],
     "soundwire_rx_tx_bound_in_58": true,
     "variant_confirmed": false,
@@ -176,6 +177,9 @@
     "trial58_stall_root_cause_resolved": false,
     "trial59_soundwire_rx_tx_bound": true,
     "trial60_card_registration": "failed_ENODEV_and_reprobe_failed",
-    "capture_component_bound": false
+    "capture_component_bound": true,
+    "trial61_card_registration": true,
+    "trial61_driver_variant_branch": "wcd9385_unchecked_efuse_read",
+    "trial60_dt_order_cause_supported_by_trial61": true
   }
 }
