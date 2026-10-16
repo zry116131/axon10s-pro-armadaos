@@ -160,7 +160,8 @@
     "temporary_candidates_tested": [
       57,
       58,
-      59
+      59,
+      60
     ],
     "soundwire_rx_tx_bound_in_58": true,
     "variant_confirmed": false,
@@ -173,6 +174,8 @@
     "trial59_root_handoff_verified": true,
     "trial59_early_usb_cleanup_verified": true,
     "trial58_stall_root_cause_resolved": false,
-    "trial59_soundwire_rx_tx_bound": true
+    "trial59_soundwire_rx_tx_bound": true,
+    "trial60_card_registration": "failed_ENODEV_and_reprobe_failed",
+    "capture_component_bound": false
   }
 }

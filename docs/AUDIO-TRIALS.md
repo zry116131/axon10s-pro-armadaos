@@ -41,3 +41,15 @@ RX/TX macro等待LPASS pinctrl供应者，两条SWR继续等待macro。查明PIN
 标准后端为 `TX_CODEC_DMA_TX_3 → WCD DAI1 + swr2 DAI0 + txmacro DAI0`。先验证 component 绑定，不添加模拟麦克风路由或录音流。现有主线机器驱动将后端固定为 48 kHz / S16_LE / 双声道，后续单模拟源测试须与 PCM 声道配置区分。
 
 WCD 驱动不主动设置或校验 BOB 输入电压；1–2.85 V 的校验针对 MICBIAS 输出，不能用于证明 3.032 V 输入符合模拟规格。共享 BOB 还连接多组 PMIC 电源输入，本阶段保持其电压。厂商 mixer 配置未在已提取文件中找到，不能据此断言原厂镜像内不存在。
+
+## #60：采集 component 绑定失败，未安装
+
+临时候选在 #59 基础上加入上述标准 capture link 和本机 TX3 jack-setup 限制；原设备树属性不变，仅增加四个 link 节点及所需引用属性。配置仅改版本名，保留 #59 的早期 USB 入口。两次源码审查通过，编译无警告，镜像 SHA256 为 `cbfb64e1d9004f1ba7cc04f0eaec02f6ea2b56f7a5df8f5d728e9e45dd930fd5`。
+
+实机进入真实根目录，USB/SSH/Wi-Fi 可用，但声卡以 `-ENODEV (-19)` 注册失败，ALSA 无声卡，原 TFA 播放亦不能使用。系统启动后对未绑定的 sound 设备做一次重新探测，仍失败；因此不能仅归因于首次启动时序。已保存组件/DAI 清单和完整可用日志，后续需要给 card/component probe 加精确诊断。大量 q6routing 缺路由消息不能单独确定第一失败点。本轮没有打开录音流，也没有调整电压。
+
+另外确认 WCD variant 读取缺少独立错误检查：掩码操作可能将负错误码转换成合法型号。因此变体控件只能说明驱动选了哪个分支。已准备单独的 EFUSE 读取错误处理补丁，尚未编译或实机验证，不将其记为已安装修复。
+
+后续源码审查找到高度匹配的原因：#60 的生成工具把 capture 子树放在 `/sound` 最前面，而 common/ASoC 按此顺序建立并探测组件。q6routing 因而先于 q6asm 的 MM_DL/MM_UL widgets 加载，缺失 widget 的返回值正是 `-ENODEV`。属性值相同的检查没有覆盖这个结构顺序约束。下一候选仅将 capture 子树追加到原 TFA 之后，并增加顺序验证；在实机复测前仍保留“疑似根因”结论。
+
+#60 测试后已正常重启回 #56：TFA 声卡恢复，Steam 独立游戏模式 active，仅 2 GiB ZRAM，systemd 无失败单元。未将 #60 写入启动分区。
