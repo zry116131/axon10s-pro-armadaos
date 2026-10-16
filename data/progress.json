@@ -231,5 +231,21 @@
     "gamescope_wl_selection_corrected": true,
     "record": "docs/GPU-TRANSITION-TRIALS.md",
     "scope": "bounded startup and SIGTERM return; no gameplay, overlay or physical display acceptance"
+  },
+  "video_boundary_trial": {
+    "build": 66,
+    "temporary_boot_only": true,
+    "installed": false,
+    "recovered_to_build": 56,
+    "first_trial_missing_pts": [
+      16,
+      18
+    ],
+    "first_trial_corrupt_frame_count": 232,
+    "eof_trial_exact_prefix_frames": 354,
+    "eof_trial_requested_frames": 360,
+    "sfr_reproduced": true,
+    "hardware_decode_fixed": false,
+    "record": "docs/VIDEO-DECODE-TRIALS.md"
   }
 }
