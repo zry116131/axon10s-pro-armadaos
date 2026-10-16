@@ -1,0 +1,3 @@
+# Chromium 126 V4L2 uses video-decN; preserve the kernel videoN node and permissions.
+# Match the actual Venus decoder, never its encoder or a camera.
+SUBSYSTEM=="video4linux", KERNEL=="video[0-9]*", DRIVERS=="qcom-venus", ATTR{name}=="qcom-venus-decoder", SYMLINK+="video-dec0"

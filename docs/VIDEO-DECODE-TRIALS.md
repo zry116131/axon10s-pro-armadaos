@@ -256,3 +256,28 @@ v2默认16-buffer快速解码仍失败：最终600帧内容一致，但45秒期�
 限制：raw流无可靠PTS，DRC只验帧内容/顺序/尺寸；DRC测试不跨尺寸保留旧外部帧；同线程持旧帧继续请求重配仍可能等待；原多memory-plane计数问题未混入修复；本机NV12为单memory-plane。不能据此宣称所有播放器、Steam CEF、其他codec/encoder已修复。
 
 本轮DRC测试后已正常返回已安装#56。SSH复核内核7.2.6-axon10s-dsiclkfix1、系统running、独立游戏模式active、仅2GiB ZRAM、0个失败系统服务；USB命令口重新枚举。候选及日志保留，boot/REC未改写。
+
+
+## Steam CEF真实硬解接入：缺失设备别名已修复
+
+live CEF Chrome126.0.6478.183，ARM64 libcef BuildID a29cadf31ff4e0c93949d65c973e2292062756e0。官方对应V4L2Device扫描video-dec及video-dec0..9，stateful后端直接V4L2，不调用系统FFmpeg；Steam定制是否全部相同需实测。此前FFmpeg通过不能直接推导CEF通过。
+
+临时#71验证video1名称qcom-venus-decoder、driver qcom-venus，video0为encoder；armada属于video组。补video-dec0映射，临时通过原生settingsStore开启硬解，重启实际游戏模式用户服务。确认disable-accelerated-video-decode消失，SystemInfo video_decode=enabled，但videoDecoding仍为空。实际HTML视频播放才给出决定性证据。
+
+在游戏模式页面插入1px透明、静音的合成视频，结束或35秒超时均移除。CDP Media属性按playerId记录，避免把页面缓存的其他VP9播放器混为H264结果。320×240/3秒H264 baseline：V4L2VideoDecoder、platform=true，ended，90帧、0丢帧。1280×720/20秒H264 high：1.21秒跳10秒，11.07秒跳回3秒，最后自然ended到20秒，579total、1dropped；该1280×720播放器同样V4L2VideoDecoder/platform=true。跳转运行帧数不应按原文件600帧验收。GPU processCrashCount保持0；但随后核对完整内核日志发现Steam启动阶段有Venus固件崩溃，详见下段。不可把GPU进程未崩溃等同视频固件正常。
+
+这证明实际Steam CEF能够使用当前内核的H264硬解，而非仅外部FFmpeg成功；尚未验证全屏物理呈现、像素hash、长期覆盖层交互、HEVC/VP9或所有商店视频。其他缓存VP9播放器显示VpxVideoDecoder，不宣传全格式硬解。测试未替换系统FFmpeg或CEF。
+
+持久化70-axon-venus-decoder.rules精确匹配decoder名称及driver；保留权限和原videoN节点。删除手工测试alias后经udev change重新创建，并确认DEVLINKS与armada读写权限。该规则对Venus禁用的#56不生成节点。测试后原生硬解设置已恢复false，webviews保持true，正常重启返回#56；启动结果另行核验。
+
+
+### CEF启动期间VPx固件崩溃：全局硬解仍不可固化
+
+最终归档完整内核日志发现：本次启动monotonic49.79秒起session error1001，49.887秒固件SFR `VIDEO.VPU.1.0-00090-PROD-1 Err_Fatal .../decoders/vpx/src/vpx_decoder.c:1126:67861`，伴随1009及no valid instance；恢复初次失败，52.576秒报告recovered。之后H264短片/720p跳转测试通过。Media记录还显示页面缓存VP9播放器最终使用软件VpxVideoDecoder，但不能仅据缓存属性锁定故障的具体player/格式；日志直接指向VPx固件路径。
+
+因此设备别名缺失已修复、CEF H264接入已证明，但全局开启会暴露另一个固件故障，仍保持关闭。GPU crashCount0与Venus固件SFR是不同维度，不能互相替代。本轮不据H264成功固化#71或打开日常硬解。下一步核对VP8/VP9能力枚举、实际流参数与固件边界，单独复现修复。
+
+
+回滚已复核：#56、running、独立游戏模式active、0失败系统服务、仅2GiB ZRAM，video-dec0不存在。settingsStore读回video=false/webviews=true，steamwebhelper实际含disable-accelerated-video-decode。udev规则保留但稳定内核无匹配节点，不影响当前使用。
+
+针对VPx的下一步证据：源码审查发现SM8250的HFI6平台能力来自hfi_platform_v6.c静态表；hfi_parser平台解析成功即返回，广告VP8/VP9和VP9 P0/P2_10B并不等于旧1.0.90固件实测支持。需单独核对原始流codec/profile/coded size及并发，按VP8、VP9-P0等最小样本逐项受控测试，不能仅按vpx_decoder.c把VP9或多会话认定为唯一根因。
