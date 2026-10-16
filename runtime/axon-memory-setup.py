@@ -1,19 +1,14 @@
 #!/usr/bin/python3
-"""Enable the verified fallback swap and 2 GiB LZ4 zram without resetting live data."""
+"""Enable only 2 GiB LZ4 zram; retire the previous disk swap safely."""
 import pathlib,subprocess
 
 def active():
     return {line.split()[0] for line in pathlib.Path('/proc/swaps').read_text().splitlines()[1:]}
 def run(*args):subprocess.run(args,check=True)
 disk='/var/lib/axon-swap/swapfile'
-if disk not in active():
-    p=pathlib.Path(disk)
-    if not p.is_file() or p.is_symlink() or p.stat().st_uid!=0 or p.stat().st_mode & 0o077:
-        raise SystemExit('fallback swap missing or unsafe permissions')
-    run('/usr/sbin/swapon','-p','10',disk)
 z=pathlib.Path('/sys/block/zram0')
 if not z.exists():
-    print('kernel has no zram0; disk fallback enabled')
+    raise SystemExit('kernel has no zram0; refusing to enable the retired disk swap')
 elif '/dev/zram0' in active():
     print('zram already active; left unchanged')
 else:
@@ -24,4 +19,14 @@ else:
     (z/'disksize').write_text(str(2*1024**3))
     run('/usr/sbin/mkswap','/dev/zram0')
     run('/usr/sbin/swapon','-p','100','/dev/zram0')
+if disk in active():
+    rows=pathlib.Path('/proc/swaps').read_text().splitlines()[1:]
+    used_kib=next(int(row.split()[3]) for row in rows if row.split()[0]==disk)
+    info=dict(line.split(':',1) for line in pathlib.Path('/proc/meminfo').read_text().splitlines())
+    available_kib=int(info['MemAvailable'].split()[0])
+    if available_kib < used_kib + 512*1024:
+        raise SystemExit('insufficient memory to retire disk swap safely; retry after closing games')
+    run('/usr/sbin/swapoff',disk)
+if '/dev/zram0' not in active() or disk in active():
+    raise SystemExit('exclusive zram configuration not reached')
 print(pathlib.Path('/proc/swaps').read_text())

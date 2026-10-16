@@ -1,8 +1,7 @@
 [Unit]
-Description=Axon verified ZRAM and disk swap fallback
+Description=Axon exclusive 2 GiB ZRAM
 After=local-fs.target
 Before=display-manager.service
-ConditionPathExists=/var/lib/axon-swap/swapfile
 
 [Service]
 Type=oneshot

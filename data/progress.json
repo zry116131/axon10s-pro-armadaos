@@ -1,5 +1,5 @@
 {
-  "as_of": "2026-10-16",
+  "as_of": "2026-10-17",
   "target": "ZTE A2020 SP / P865A02",
   "publication_type": "documentation_snapshot",
   "device_count": 1,
@@ -82,7 +82,7 @@
   },
   "runtime_repair_record": "docs/RUNTIME-REPAIRS.md",
   "compressed_swap_enabled": true,
-  "disk_swap_mib": 2048,
+  "disk_swap_mib": 0,
   "gpu_freeze_root_cause_resolved": false,
   "zram_mib": 2048,
   "zram_compressor": "lz4",
@@ -111,5 +111,8 @@
     "record": "docs/BOOT-SUCCESS.md",
     "auto_mark_for_future_installations": false,
     "retry_count_after_second_verified_boot": 6
-  }
+  },
+  "disk_swap_backup_mib": 2048,
+  "swap_policy": "zram_only",
+  "zram_only_normal_reboot_verified": true
 }
