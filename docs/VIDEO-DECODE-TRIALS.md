@@ -211,3 +211,15 @@ v2默认16-buffer快速解码仍失败：最终600帧内容一致，但45秒期�
 生命周期审查还发现，不能直接把现有codec_end+init挂入flush：STREAMOFF失败时end仍释放OUTPUT，旧外部帧回收可能继续QBUF；提取实际函数的ASan/UBSan桩测试已复现这一控制流。需先实现退休会话与回收排队的同步、失败时保留资源及显式错误传播，才可受控测试内部重建硬件会话。此处不宣称已经修复seek。
 
 本轮seek测试后已正常返回#56并通过SSH复核：系统running、独立游戏模式active、仅2GiB ZRAM、无失败系统服务，无线恢复服务健康无操作退出。#71、独立解码程序均未固化到系统启动/FFmpeg包。
+
+## FFmpeg flush 候选：已复现的 seek 和重播失败修复通过
+
+0004候选在相同AVCodecContext内退休旧私有硬件会话，再建立新会话。加锁串行化旧帧回收QBUF与退休；STREAMOFF失败保留旧映射并报告flush_error，下一次显式flush可重试；外持旧帧延长旧context、fd及两队列映射生命周期。共享清理不再在外部引用存在时提前释放OUTPUT。并非只在测试程序中关闭重开decoder。
+
+独立Linux ARM64完整编译通过。五源码补丁逐字节重建通过，父级和第二智能体独立审查。Linux GCC13.3 ASan/UBSan提取实际函数测试及父级复跑通过：两队列停止失败、部分初始化失败、重试、错误传播、晚期帧引用及真实pthread并发退休屏障。macOS未命名sem_init不支持导致最初测试中止，已明确改为Linux执行，没有把平台差异计作通过。
+
+#71实机、相同600帧素材：中途seek前60帧及seek后480帧均与软件逐帧PTS/尺寸/MD5完全一致、退出0；此前额外旧帧消失。自然EOF前600帧及seek0后600帧均完全一致、退出0；此前零帧重播失败消失。
+
+持帧测试共5阶段，帧数60/45/45/360/600，前后跳转并包含EOF重播，始终同一外部AVCodecContext。每次clone保留旧帧至flush和下一阶段之后，四次转场共8个MD5复核全部相同。各阶段首尾PTS/hash及帧数与软件一致、退出0。该测试只比较阶段边界和旧帧，未比较每个中间帧。内核日志无本轮Venus SFR/固件故障或IOMMU fault记录。
+
+独立ffmpeg二进制SHA256 `5218bc86e87d08b316029bc9ff7ab8332a02417034364b3033e90ec65f350657`；same-context测试程序 `3d6e1b74eac89b9f04759f827af4f8e5542d8d43fc7e019cc3799ed449e653ba`；lifetime程序 `7f38379b076fb06845e08f4a7e34221413cd5ef96e83b7c83c4acc96119f8769`，部署后hash核对一致。未替换系统FFmpeg，未启用Steam硬解，未改boot/REC。真实分辨率重配置、长期播放器使用、发行包和Steam自身解码链路接入仍需验收；其他codec/encoder仅共享路径审查，未做实机集成验证。

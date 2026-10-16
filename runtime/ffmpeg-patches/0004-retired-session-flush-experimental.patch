@@ -1,0 +1,365 @@
+--- a/libavcodec/v4l2_m2m.h
++++ b/libavcodec/v4l2_m2m.h
+@@ -27,6 +27,7 @@
+ #include <errno.h>
+ #include <stdint.h>
+ #include "libavutil/error.h"
++#include "libavutil/thread.h"
+ 
+ #include <semaphore.h>
+ #include <unistd.h>
+@@ -66,6 +67,12 @@
+     sem_t refsync;
+     atomic_uint refcount;
+     int reinit;
++
++    /* Serialize callback QBUF with permanent retirement. Initialize once. */
++    AVMutex queue_lock;
++    int queue_lock_initialized;
++    int refsync_initialized;
++    int retired;
+ 
+     /* null frame/packet received */
+     int draining;
+@@ -130,6 +137,8 @@
+ 
+     V4L2m2mContext *context;   ///< RefStruct reference
+ 
++    int flush_error; ///< Decoder flush failure, reported before accessing context.
++
+     int num_output_buffers;
+     int num_capture_buffers;
+ } V4L2m2mPriv;
+@@ -165,6 +174,10 @@
+  */
+ int ff_v4l2_m2m_codec_end(V4L2m2mPriv *priv);
+ 
++/* Retire callbacks and stop both queues. On failure retain all resources;
++ * the caller may retry retirement, but must not resume this context. */
++int ff_v4l2_m2m_codec_retire(V4L2m2mContext *s);
++
+ /**
+  * Reinitializes the V4L2m2mContext when the driver cannot continue processing
+  * with the capture parameters.
+--- a/libavcodec/v4l2_m2m.c
++++ b/libavcodec/v4l2_m2m.c
+@@ -70,8 +70,6 @@
+     s->capture.done = s->output.done = 0;
+     s->capture.name = "capture";
+     s->output.name = "output";
+-    atomic_init(&s->refcount, 0);
+-    sem_init(&s->refsync, 0, 0);
+ 
+     memset(&cap, 0, sizeof(cap));
+     ret = ioctl(s->fd, VIDIOC_QUERYCAP, &cap);
+@@ -251,16 +249,54 @@
+ static void v4l2_m2m_destroy_context(AVRefStructOpaque unused, void *context)
+ {
+     V4L2m2mContext *s = context;
+-
++    int fd;
++
++    /* Last context reference: no external frame can access either mapping.
++     * Keep fd valid through queue release; close alone does not retire MMAPs. */
++    ff_v4l2_context_release(&s->output);
+     ff_v4l2_context_release(&s->capture);
+-    sem_destroy(&s->refsync);
+-
+-    if (s->fd >= 0)
+-        close(s->fd);
++    if (s->refsync_initialized)
++        sem_destroy(&s->refsync);
++    if (s->queue_lock_initialized)
++        ff_mutex_destroy(&s->queue_lock);
++
++    fd = s->fd;
++    s->fd = -1;
++    if (fd >= 0)
++        close(fd);
+     av_frame_free(&s->frame);
+     av_packet_unref(&s->buf_pkt);
+ }
+ 
++int ff_v4l2_m2m_codec_retire(V4L2m2mContext *s)
++{
++    int ret, first_error = 0;
++
++    if (!s)
++        return 0;
++
++    /* Wait for a callback already in QBUF, then prevent every later QBUF.
++     * Do not hold this lock across STREAMOFF: frame release must not wait
++     * for a possibly blocked driver stop. The codec owner serializes calls. */
++    ff_mutex_lock(&s->queue_lock);
++    s->retired = 1;
++    ff_mutex_unlock(&s->queue_lock);
++
++    if (s->fd < 0)
++        return 0;
++    if (s->output.streamon) {
++        ret = ff_v4l2_context_set_status(&s->output, VIDIOC_STREAMOFF);
++        if (ret < 0)
++            first_error = ret;
++    }
++    if (s->capture.streamon) {
++        ret = ff_v4l2_context_set_status(&s->capture, VIDIOC_STREAMOFF);
++        if (ret < 0 && !first_error)
++            first_error = ret;
++    }
++    return first_error;
++}
++
+ av_cold int ff_v4l2_m2m_codec_end(V4L2m2mPriv *priv)
+ {
+     V4L2m2mContext *s = priv->context;
+@@ -268,22 +304,20 @@
+ 
+     if (!s)
+         return 0;
+-
+-    if (s->fd >= 0) {
+-        ret = ff_v4l2_context_set_status(&s->output, VIDIOC_STREAMOFF);
+-        if (ret)
+-            av_log(s->avctx, AV_LOG_ERROR, "VIDIOC_STREAMOFF %s\n", s->output.name);
+-
+-        ret = ff_v4l2_context_set_status(&s->capture, VIDIOC_STREAMOFF);
+-        if (ret)
+-            av_log(s->avctx, AV_LOG_ERROR, "VIDIOC_STREAMOFF %s\n", s->capture.name);
+-    }
+-
+-    ff_v4l2_context_release(&s->output);
+-
++    ret = ff_v4l2_m2m_codec_retire(s);
++    if (ret < 0)
++        av_log(s->avctx, AV_LOG_ERROR, "V4L2 stop failed during final close: %s\n",
++               av_err2str(ret));
++
++    /* End is final close, not a failed-flush recovery path. External frames
++     * keep the retired instance, fd and BOTH queues alive until final unref.
++     * No deferred callback/destructor may use the dead AVCodecContext/priv. */
++    ff_mutex_lock(&s->queue_lock);
+     s->self_ref = NULL;
++    s->avctx = NULL;
++    s->priv = NULL;
++    ff_mutex_unlock(&s->queue_lock);
+     av_refstruct_unref(&priv->context);
+-
+     return 0;
+ }
+ 
+@@ -327,27 +361,38 @@
+ 
+ int ff_v4l2_m2m_create_context(V4L2m2mPriv *priv, V4L2m2mContext **s)
+ {
++    int ret;
++
+     *s = av_refstruct_alloc_ext(sizeof(**s), 0, NULL,
+-                                &v4l2_m2m_destroy_context);
++                              &v4l2_m2m_destroy_context);
+     if (!*s)
+         return AVERROR(ENOMEM);
+-
+-    /* assign the context */
++    (*s)->fd = -1;
++    atomic_init(&(*s)->refcount, 0);
++    ret = ff_mutex_init(&(*s)->queue_lock, NULL);
++    if (ret) {
++        ret = AVERROR(ret);
++        goto fail;
++    }
++    (*s)->queue_lock_initialized = 1;
++    if (sem_init(&(*s)->refsync, 0, 0)) {
++        ret = AVERROR(errno);
++        goto fail;
++    }
++    (*s)->refsync_initialized = 1;
++    (*s)->frame = av_frame_alloc();
++    if (!(*s)->frame) {
++        ret = AVERROR(ENOMEM);
++        goto fail;
++    }
++
++    (*s)->capture.num_buffers = priv->num_capture_buffers;
++    (*s)->output.num_buffers = priv->num_output_buffers;
++    (*s)->self_ref = *s;
++    (*s)->priv = priv;
+     priv->context = *s;
+-    (*s)->priv = priv;
+-
+-    /* populate it */
+-    priv->context->capture.num_buffers = priv->num_capture_buffers;
+-    priv->context->output.num_buffers  = priv->num_output_buffers;
+-    priv->context->self_ref = priv->context;
+-    priv->context->fd = -1;
+-
+-    priv->context->frame = av_frame_alloc();
+-    if (!priv->context->frame) {
+-        av_refstruct_unref(&priv->context);
+-        *s = NULL; /* freed when unreferencing context */
+-        return AVERROR(ENOMEM);
+-    }
+-
+-    return 0;
+-}
++    return 0;
++fail:
++    av_refstruct_unref(s);
++    return ret;
++}
+--- a/libavcodec/v4l2_m2m_dec.c
++++ b/libavcodec/v4l2_m2m_dec.c
+@@ -136,11 +136,17 @@
+ 
+ static int v4l2_receive_frame(AVCodecContext *avctx, AVFrame *frame)
+ {
+-    V4L2m2mContext *s = ((V4L2m2mPriv*)avctx->priv_data)->context;
+-    V4L2Context *const capture = &s->capture;
+-    V4L2Context *const output = &s->output;
++    V4L2m2mPriv *priv = avctx->priv_data;
++    V4L2m2mContext *s;
++    V4L2Context *capture, *output;
+     int64_t retry_deadline = 0;
+     int ret;
++
++    if (priv->flush_error)
++        return priv->flush_error;
++    s = priv->context;
++    capture = &s->capture;
++    output = &s->output;
+ 
+     if (!s->buf_pkt.size) {
+         ret = ff_decode_get_packet(avctx, &s->buf_pkt);
+@@ -234,6 +240,34 @@
+     }
+ 
+     return v4l2_prepare_decoder(s);
++}
++
++static void v4l2_decode_flush(AVCodecContext *avctx)
++{
++    V4L2m2mPriv *priv = avctx->priv_data;
++    int ret;
++
++    if (priv->context) {
++        av_packet_unref(&priv->context->buf_pkt);
++        ret = ff_v4l2_m2m_codec_retire(priv->context);
++        if (ret < 0) {
++            /* Keep the retired instance and its mappings for an explicit retry. */
++            priv->flush_error = ret;
++            av_log(avctx, AV_LOG_ERROR, "V4L2 flush could not stop old session: %s\n",
++                   av_err2str(ret));
++            return;
++        }
++        ff_v4l2_m2m_codec_end(priv);
++    }
++
++    ret = v4l2_decode_init(avctx);
++    if (ret < 0) {
++        /* init does not STREAMON; end safely handles a partial or NULL context. */
++        ff_v4l2_m2m_codec_end(priv);
++        av_log(avctx, AV_LOG_ERROR, "V4L2 flush session rebuild failed: %s\n",
++               av_err2str(ret));
++    }
++    priv->flush_error = ret;
+ }
+ 
+ static av_cold int v4l2_decode_close(AVCodecContext *avctx)
+@@ -271,6 +305,7 @@
+         .init           = v4l2_decode_init, \
+         FF_CODEC_RECEIVE_FRAME_CB(v4l2_receive_frame), \
+         .close          = v4l2_decode_close, \
++        .flush          = v4l2_decode_flush, \
+         .bsfs           = bsf_name, \
+         .p.capabilities = AV_CODEC_CAP_HARDWARE | AV_CODEC_CAP_DELAY | AV_CODEC_CAP_AVOID_PROBING, \
+         .caps_internal  = FF_CODEC_CAP_NOT_INIT_THREADSAFE | \
+--- a/libavcodec/v4l2_context.c
++++ b/libavcodec/v4l2_context.c
+@@ -456,12 +456,19 @@
+ 
+         for (j = 0; j < buffer->num_planes; j++) {
+             struct V4L2Plane_info *p = &buffer->plane_info[j];
+-            if (p->mm_addr && p->length)
++            if (p->mm_addr && p->length) {
+                 if (munmap(p->mm_addr, p->length) < 0)
+                     av_log(logger(ctx), AV_LOG_ERROR, "%s unmap plane (%s))\n", ctx->name, av_err2str(AVERROR(errno)));
+-        }
+-    }
+-
++                else {
++                    p->mm_addr = NULL;
++                    p->length = 0;
++                }
++            }
++        }
++    }
++
++    if (ctx_to_m2mctx(ctx)->fd < 0)
++        return 0;
+     return ioctl(ctx_to_m2mctx(ctx)->fd, VIDIOC_REQBUFS, &req);
+ }
+ 
+@@ -563,16 +570,30 @@
+ 
+ int ff_v4l2_context_set_status(V4L2Context* ctx, uint32_t cmd)
+ {
++    V4L2m2mContext *s = ctx_to_m2mctx(ctx);
+     int type = ctx->type;
+-    int ret;
+-
+-    ret = ioctl(ctx_to_m2mctx(ctx)->fd, cmd, &type);
+-    if (ret < 0)
+-        return AVERROR(errno);
+-
+-    ctx->streamon = (cmd == VIDIOC_STREAMON);
+-
+-    return 0;
++    int ret, locked = 1;
++
++    ff_mutex_lock(&s->queue_lock);
++    if (s->retired) {
++        if (cmd != VIDIOC_STREAMOFF) {
++            ff_mutex_unlock(&s->queue_lock);
++            return AVERROR_EOF;
++        }
++        /* Retired callbacks never inspect streamon or enqueue. */
++        ff_mutex_unlock(&s->queue_lock);
++        locked = 0;
++    }
++    ret = s->fd < 0 ? AVERROR(EBADF) : ioctl(s->fd, cmd, &type);
++    if (ret < 0) {
++        if (s->fd >= 0)
++            ret = AVERROR(errno);
++    } else {
++        ctx->streamon = (cmd == VIDIOC_STREAMON);
++    }
++    if (locked)
++        ff_mutex_unlock(&s->queue_lock);
++    return ret;
+ }
+ 
+ int ff_v4l2_context_enqueue_frame(V4L2Context* ctx, const AVFrame* frame)
+--- a/libavcodec/v4l2_buffers.c
++++ b/libavcodec/v4l2_buffers.c
+@@ -239,9 +239,12 @@
+     V4L2m2mContext *s = buf_to_m2mctx(avbuf);
+ 
+     if (atomic_fetch_sub(&avbuf->context_refcount, 1) == 1) {
++        ff_mutex_lock(&s->queue_lock);
+         atomic_fetch_sub_explicit(&s->refcount, 1, memory_order_acq_rel);
+ 
+-        if (s->reinit) {
++        if (s->retired) {
++            /* Retirement owns queue teardown; never requeue an old frame. */
++        } else if (s->reinit) {
+             if (!atomic_load(&s->refcount))
+                 sem_post(&s->refsync);
+         } else {
+@@ -253,6 +256,8 @@
+                 ff_v4l2_buffer_enqueue(avbuf);
+         }
+ 
++        /* This unref may destroy the context and its mutex. */
++        ff_mutex_unlock(&s->queue_lock);
+         av_refstruct_unref(&avbuf->context_ref);
+     }
+ }
