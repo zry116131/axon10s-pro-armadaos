@@ -95,3 +95,15 @@ BOB 仍为 3032 mV，S4A 1800 mV；ADC1、ADC1_MIXER 均 off，TX DEC0 MUX 为�
 #64 仍为临时启动，未写入 boot/REC。下一步添加应用可用的 UCM 采集启停序列，保留已有扬声器配置后再决定持久化。
 
 测试后已正常重启回 #56，TFA 声卡、Steam 游戏模式和仅2GiB ZRAM正常，systemd无失败单元。
+
+## #64 复测：启动依赖与 UCM 应用层验证
+
+重复临时启动发现 VA macro 首次 LPASS_HW_MACRO_VOTE（block 3）超时 `-110`，使 RX/TX macro、SoundWire 和整张声卡等待。系统启动完成后仅重新探测未绑定的 `3370000.codec`，声卡恢复。下一次临时启动直接成功。确认启动存在时序敏感性；首次 APR 响应超时根因未定，手动 reprobe 仅为恢复手段，不能据此批准固化。
+
+初版 UCM 仅在 Mic.EnableSequence 连接 MM2 backend，导致 ACP 在设置 HiFi verb 后探测采集 PCM 时返回 `EINVAL`，拒绝整个 HiFi profile。单变量实机对照：backend off→PCM open -22，backend on→0，恢复 off→-22；四个麦克风 DAPM 检查点始终 Off。修正版将 backend 连接提升至条件化 verb，Mic 启停负责其余九控件；无 ADC1 控件时保持原扬声器行为。
+
+修正版通过真实 libasound 解析与 PipeWire 枚举。两次限时应用录音均进入 RUNNING，停止并等待后 PCM closed、source SUSPENDED，MIC BIAS1/ADC1/ADC1_MIXER/ADC1_OUTPUT 全 Off。另一次通过 parec/paplay 完成完整5秒、48kHz双声道应用采集，底层选择 S24_LE，交付 s16；700/1100Hz 对应时间窗能量明确上升并在结束后下降，两通道一致，播放/采集均返回0。系统音量精确恢复945/945，原始PCM与测试音删除。关闭HiFi profile后十控件全部回到关闭/零值。
+
+首次应用录音时记录一次 SoundWire read-enable-valid mismatch；功能测试成功不能排除该警告的稳定性风险。UCM 候选见 `runtime/alsa-ucm/`。测试通过临时 `/run` 配置和用户服务环境覆盖完成，未修改系统 UCM 文件，覆盖已撤销；未写 boot/REC。语音质量、其他麦克风、长期运行、休眠和非正常断电恢复仍待验证。
+
+随后恢复 #56，修正版 UCM 再经真实 libasound 和 WirePlumber 回退分支验证：仅 Speaker/sink 与其 monitor，无 Mic/source。测试覆盖已撤销，原系统 UCM 保持不变。#56 TFA 声卡恢复，systemd 无失败单元。
