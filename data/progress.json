@@ -164,11 +164,12 @@
       60,
       61,
       62,
-      63
+      63,
+      64
     ],
     "soundwire_rx_tx_bound_in_58": true,
     "variant_confirmed": true,
-    "capture_route_verified": false,
+    "capture_route_verified": true,
     "recording_tested": true,
     "installed": false,
     "trial58_root_handoff_blocked": true,
@@ -190,7 +191,11 @@
       "build": 62
     },
     "trial63_limited_pcm_capture_completed": true,
-    "physical_microphone_verified": false,
-    "trial63_dec0_cleanup_failed": true
+    "physical_microphone_verified": true,
+    "trial63_dec0_cleanup_failed": true,
+    "trial64_all_controls_restored": true,
+    "trial64_known_tone_response_verified": true,
+    "microphone_verification_scope": "AMIC1 bounded 700/1100 Hz response; speech quality, other microphones, UCM and suspend unverified",
+    "ucm_capture_integrated": false
   }
 }
