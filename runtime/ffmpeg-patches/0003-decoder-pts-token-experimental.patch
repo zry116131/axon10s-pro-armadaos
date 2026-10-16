@@ -1,0 +1,148 @@
+--- a/libavcodec/v4l2_m2m.h
++++ b/libavcodec/v4l2_m2m.h
+@@ -24,6 +24,10 @@
+ #ifndef AVCODEC_V4L2_M2M_H
+ #define AVCODEC_V4L2_M2M_H
+ 
++#include <errno.h>
++#include <stdint.h>
++#include "libavutil/error.h"
++
+ #include <semaphore.h>
+ #include <unistd.h>
+ #include <dirent.h>
+@@ -39,6 +43,15 @@
+ #define V4L_M2M_DEFAULT_OPTS \
+     { "num_output_buffers", "Number of buffers in the output context",\
+         OFFSET(num_output_buffers), AV_OPT_TYPE_INT, { .i64 = 16 }, 2, INT_MAX, FLAGS }
++
++/* Decoder-only timestamps: no raw signed PTS crosses the V4L2 ABI. */
++#define V4L2_PTS_MAP_SIZE 4096
++#define V4L2_PTS_TOKEN_MAX (INT64_MAX / 1000)
++
++typedef struct V4L2PtsEntry {
++    int64_t token;
++    int64_t pts;
++} V4L2PtsEntry;
+ 
+ typedef struct V4L2m2mContext {
+     char devname[PATH_MAX];
+@@ -58,6 +71,12 @@
+     int draining;
+     AVPacket buf_pkt;
+ 
++    /* Single decoder thread owns this map; capture buffer free callbacks do not.
++     * Preserve across capture reconfiguration; lifetime is the decoder context.
++     */
++    int64_t pts_token_counter;
++    V4L2PtsEntry pts_map[V4L2_PTS_MAP_SIZE];
++
+     /* Reference to a frame. Only used during encoding */
+     AVFrame *frame;
+ 
+@@ -67,6 +86,44 @@
+     /* reference back to V4L2m2mPriv */
+     void *priv;
+ } V4L2m2mContext;
++
++/* TOKEN_HELPERS_BEGIN */
++static inline int ff_v4l2_pts_prepare(const V4L2m2mContext *s, int64_t *token)
++{
++    if (s->pts_token_counter >= V4L2_PTS_TOKEN_MAX)
++        return AVERROR(ERANGE);
++    *token = s->pts_token_counter + 1;
++    return 0;
++}
++
++static inline void ff_v4l2_pts_commit(V4L2m2mContext *s, int64_t token, int64_t pts)
++{
++    V4L2PtsEntry *entry = &s->pts_map[token % V4L2_PTS_MAP_SIZE];
++    entry->pts = pts;
++    entry->token = token;
++    s->pts_token_counter = token;
++}
++
++static inline int ff_v4l2_pts_restore(const V4L2m2mContext *s,
++                                    int64_t sec, int64_t usec, int64_t *pts)
++{
++    const V4L2PtsEntry *entry;
++    int64_t token;
++
++    if (sec < 0 || usec < 0 || usec >= 1000000 ||
++        sec > V4L2_PTS_TOKEN_MAX / 1000000)
++        return AVERROR_INVALIDDATA;
++    token = sec * 1000000 + usec;
++    if (token <= 0 || token > V4L2_PTS_TOKEN_MAX ||
++        token > s->pts_token_counter)
++        return AVERROR_INVALIDDATA;
++    entry = &s->pts_map[token % V4L2_PTS_MAP_SIZE];
++    if (entry->token != token)
++        return AVERROR_INVALIDDATA;
++    *pts = entry->pts;
++    return 0;
++}
++/* TOKEN_HELPERS_END */
+ 
+ typedef struct V4L2m2mPriv {
+     AVClass *class;
+--- a/libavcodec/v4l2_context.c
++++ b/libavcodec/v4l2_context.c
+@@ -21,6 +21,7 @@
+  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+  */
+ 
++#include <limits.h>
+ #include <linux/videodev2.h>
+ #include <sys/ioctl.h>
+ #include <sys/mman.h>
+@@ -603,6 +604,7 @@
+ {
+     V4L2m2mContext *s = ctx_to_m2mctx(ctx);
+     V4L2Buffer* avbuf;
++    int64_t token = 0;
+     int ret;
+ 
+     if (!pkt->size) {
+@@ -621,7 +623,20 @@
+     if (ret)
+         return ret;
+ 
+-    return ff_v4l2_buffer_enqueue(avbuf);
++    if (av_codec_is_decoder(s->avctx->codec)) {
++        ret = ff_v4l2_pts_prepare(s, &token);
++        if (ret < 0)
++            return ret;
++        /* Guard timeval's seconds field on 32-bit userspace as well. */
++        if (token / 1000000 > LONG_MAX)
++            return AVERROR(ERANGE);
++        avbuf->buf.timestamp.tv_sec  = token / 1000000;
++        avbuf->buf.timestamp.tv_usec = token % 1000000;
++    }
++    ret = ff_v4l2_buffer_enqueue(avbuf);
++    if (!ret && token)
++        ff_v4l2_pts_commit(s, token, pkt->pts);
++    return ret;
+ }
+ 
+ int ff_v4l2_context_dequeue_frame(V4L2Context* ctx, AVFrame* frame, int timeout)
+--- a/libavcodec/v4l2_buffers.c
++++ b/libavcodec/v4l2_buffers.c
+@@ -455,7 +455,17 @@
+     frame->colorspace = v4l2_get_color_space(avbuf);
+     frame->color_range = v4l2_get_color_range(avbuf);
+     frame->color_trc = v4l2_get_color_trc(avbuf);
+-    frame->pts = v4l2_get_pts(avbuf);
++    if (av_codec_is_decoder(buf_to_m2mctx(avbuf)->avctx->codec)) {
++        ret = ff_v4l2_pts_restore(buf_to_m2mctx(avbuf),
++                                  avbuf->buf.timestamp.tv_sec,
++                                  avbuf->buf.timestamp.tv_usec, &frame->pts);
++        if (ret < 0) {
++            av_frame_unref(frame);
++            return ret;
++        }
++    } else {
++        frame->pts = v4l2_get_pts(avbuf);
++    }
+     frame->pkt_dts = AV_NOPTS_VALUE;
+     v4l2_get_interlacing(frame, avbuf);
+ 

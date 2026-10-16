@@ -17,3 +17,9 @@ Upstream source: https://raw.githubusercontent.com/FFmpeg/FFmpeg/n8.1.3/libavcod
 `0002-pending-packet-poll-retry-experimental.patch` applies directly to pristine n8.1.3, **not on top of v1**. After a transient start failure it uses existing capture dequeue/poll to service source-change. While a packet remains pending, EAGAIN causes internal retry of that packet, with 20ms polls, 1ms yield and a two-second no-progress deadline. A real dequeued frame is required for return0. ENOMEM/enqueue errors retain cleanup. The deadline cannot interrupt blocked ioctls, repeated EINTR within poll or pre-existing no-pending blocking waits; external trial timeout remains mandatory.
 
 Extended ASan/UBSan tests check frame validity, ownership, internal retry, timeout cleanup, no-pending EAGAIN, hard errors and EOS. This remains a candidate requiring broader hardware acceptance, including source changes and seeking. No system FFmpeg package was replaced.
+
+## Decoder PTS token candidate
+
+`0003-decoder-pts-token-experimental.patch` applies after 0002 to upstream 8.1.3. Decoder submission uses positive timestamp tokens and a bounded 4096-entry map to restore the exact original signed PTS on capture. Only successful QBUF commits a token. Unknown or evicted tokens fail explicitly; encoder timestamp behavior is unchanged. Roughly 64 KiB is added per context. Drivers must preserve timestamps; retention is bounded to 4096 later submissions.
+
+ASan/UBSan helper and enqueue tests passed, including failed QBUF, wrap protection, reordered output and signed extrema. On temporary kernel #71, initial seek5 (450 frames), ring reuse (5000 frames) and two-input-buffer pressure (600 frames) matched software frame hashes and timestamps exactly and exited normally. Same-context repeated seeking and genuine resolution reconfiguration remain unverified. This isolated binary is not installed as the system FFmpeg and does not enable Steam hardware video.

@@ -1,0 +1,19 @@
+[Unit]
+Description=One-shot Axon Wi-Fi board-data startup recovery
+After=local-fs.target systemd-udev-trigger.service systemd-modules-load.service
+ConditionPathExists=/sys/bus/pci/devices/0000:01:00.0
+ConditionPathExists=/sys/bus/pci/drivers/ath11k_pci
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/axon-wifi-startup-recover.py
+TimeoutStartSec=40
+TimeoutStopSec=2
+KillMode=control-group
+Restart=no
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=axon-test.target multi-user.target
