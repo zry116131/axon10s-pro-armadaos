@@ -117,5 +117,14 @@
   },
   "disk_swap_backup_mib": 2048,
   "swap_policy": "zram_only",
-  "zram_only_normal_reboot_verified": true
+  "zram_only_normal_reboot_verified": true,
+  "secondary_pon": {
+    "candidate_build": 54,
+    "duplicate_registration_resolved_in_trial": true,
+    "main_reboot_modes_restored": true,
+    "recovery_and_bootloader_routes_verified": true,
+    "installed": false,
+    "physical_key_events_verified": false,
+    "record": "docs/PON-VALIDATION.md"
+  }
 }

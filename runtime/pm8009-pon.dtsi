@@ -1,0 +1,7 @@
+/* This board's secondary PON has neither reboot modes nor child functions.
+ * Avoid duplicate qcom-pon reboot-mode registration and wrong sysfs cleanup.
+ * Keep pmic@a and the main pm8150 PON/pwrkey unchanged.
+ */
+&pm8009_pon {
+    status = "disabled";
+};
