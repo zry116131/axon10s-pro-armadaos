@@ -65,3 +65,19 @@ WCD 驱动不主动设置或校验 BOB 输入电压；1–2.85 V 的校验针对
 BOB 仍为 3032 mV，S4A 1800 mV；ADC1、ADC1_MIXER 均 off，TX DEC0 MUX 为默认值。未增加模拟路由或打开录音流，实际麦克风通路尚未验证。#61 仅临时启动，未写入 boot/REC。
 
 #61 测试后已正常重启回已安装 #56，复核 TFA 声卡、Steam 游戏模式与仅 2 GiB ZRAM 正常，systemd 无失败单元。
+
+## #62：EFUSE 读取错误处理与型号确认
+
+加入返回码检查及成功读取日志；PM 引用在错误出口配对释放，其余 component 路径不变。EFUSE 寄存器本身为 volatile，不需要绕过 regcache。临时镜像 SHA256 `1d648c3ff9766fa519bb669ddd00d17107d3bda0502d43edeb3fd21a58d1d869`。
+
+实机确认总线读取成功，EFUSE raw=`0x0a`、variant=`5`，对应 WCD9385；声卡仍正常注册，Steam 游戏模式、SSH 和 ZRAM 正常。最小修复保存在 `runtime/kernel-patches/0002-wcd938x-check-efuse-read.patch`，诊断日志未混入该最小补丁。尚未安装至 boot。
+
+## #63：首次限时采集与多通道状态缺陷
+
+仅新增 AMIC1→MIC BIAS1、ADC1_OUTPUT→TX SWR_ADC0 两条路由，保持 #62 源码与所有供电参数。候选 SHA256 `8c3153eade9955500c722474f2d86a039205b4057cd02e9d3eef69c7a33f589c`。
+
+受控测试先验证声卡/PCM 身份与其余输入关闭，使用 MM2、48 kHz/S16_LE/双声道；ADC1 为 0 dB，TX0 ADC_NORMAL，DEC0/DEC1 同选 ADC0。3 秒采集正常退出，取得 288000 个交错 s16 样本（每声道144000）。录音期间 MIC BIAS1/ADC1 的 DAPM 为 On，结束后 Off，临时原始 PCM 已删除，只保留统计。两声道 RMS 约3.27与25.06、峰值15与786，不一致；未施加已知声音，不能认定实体麦克风或音质验收通过。期间记录一次 SoundWire read-enable-valid mismatch，另有稍后的 DPU event overflow，因果关系未确定。
+
+恢复检查发现 `TX_AIF1_CAP Mixer DEC0` 无法关闭，重试仍回读 on，其余已改控件恢复，模拟偏置已关闭。源码复现原因：TX mixer 使用单个 `active_decimator` 管理多个 mask 位；关闭最后选择的 DEC1 后将其设为 -1，导致关闭仍启用的 DEC0 时提前返回。重复启用非最后选择的 DEC 还可能错误累加计数；mute 路径也只处理一个 DEC。下一步修复以位掩码管理的幂等状态及多 DEC mute，再做同配置复测。此处与双声道幅度差异可能相关，尚未验证。
+
+#63 测试后正常重启回已安装 #56，TFA 声卡、Steam 游戏模式、仅 2 GiB ZRAM 正常，systemd 无失败单元；未写入 boot 或 REC。
