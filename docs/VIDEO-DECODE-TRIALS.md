@@ -281,3 +281,20 @@ live CEF Chrome126.0.6478.183，ARM64 libcef BuildID a29cadf31ff4e0c93949d65c973
 回滚已复核：#56、running、独立游戏模式active、0失败系统服务、仅2GiB ZRAM，video-dec0不存在。settingsStore读回video=false/webviews=true，steamwebhelper实际含disable-accelerated-video-decode。udev规则保留但稳定内核无匹配节点，不影响当前使用。
 
 针对VPx的下一步证据：源码审查发现SM8250的HFI6平台能力来自hfi_platform_v6.c静态表；hfi_parser平台解析成功即返回，广告VP8/VP9和VP9 P0/P2_10B并不等于旧1.0.90固件实测支持。需单独核对原始流codec/profile/coded size及并发，按VP8、VP9-P0等最小样本逐项受控测试，不能仅按vpx_decoder.c把VP9或多会话认定为唯一根因。
+
+
+## VPx首包故障隔离与#72输入尺寸候选失败
+
+在Steam硬解保持关闭的临时#71上，分别测试单会话320×240/30fps/60帧/8bit420合成VP8和VP9 Profile0 WebM。软件均完整解码60帧，素材SHA256：VP8 `364d470ad84ee1eb27d72a652bd6f988a6c01fd100d50a4edaf8bc03068cd4c8`，VP9 `4808a358909300e8caf9d71a1f76f02ae9b1011c5475fb82b63d4561b24c0a48`。外部timeout25秒+KILL2秒，不并发运行。
+
+GStreamer显式v4l2vp8dec/v4l2vp9dec，demux后每包节流33333微秒，计划收到30帧后停止（不是伪造EOS）；自然drain模式另要求60帧且真实EOS。脚本按实际I420可见行hash，处理map/unmap/异常，检查NULL关闭状态；停止统计数不表示硬件恰好只解了该帧数。
+
+#71：两格式均首帧前失败、0帧、退出1，同一固件SFR vpx_decoder.c:1126:67861。VP9解码器sink只收到1个buffer，内核fatal monotonic85.339980，随后错误传播产生sink EOS monotonic86.339110623，约晚1秒；不是正常60包EOF。因此本次首包失败不能先归因EOS虚拟地址，也不依赖两个同时运行的播放器。VP8首轮未带input探针，不借用VP9时序作为它的独立证据。
+
+准备#72，只将现有本机HFI6XX输入尺寸helper的格式条件从H264扩展为H264/VP8/VP9，保留所有guard、错误传播、EOS及其余驱动。原因是session_init先发128×128，原helper只纠正H264。实际函数ASan/UBSan guard测试及独立审查通过，完整内核编译和DT/initramfs48/DSI56保留项验证通过。镜像SHA256 `54aa22e72435e79905d35496659b2bc8981eafbf64a570dca63d31967ad26390`，临时fastboot boot，无分区写入。
+
+#72实机仍失败：VP8与VP9均1个输入buffer、0帧、退出1，同处固件SFR，fatal均早于输入EOS。系统FFmpeg vp8_v4l2m2m作为独立用户态交叉验证，同样0帧/退出69/同处SFR，60包读入、59次decode errors。故仅补输入尺寸无效，GStreamer mutable-caps警告也不足以解释跨实现固件崩溃。未运行无意义的完整drain或并发压力测试：首包已经失败。
+
+#72不作为修复安装，失败补丁仅存docs/experiments/72-vpx-input-size-FAILED.patch，不属于推荐runtime补丁链。固件随后报告recovered，不能用恢复成功宣称故障修复。下一步应核对VPx初始化/输出格式等实际协议差异。没有证据支持直接添加IVF头：主线要求压缩视频帧；所查官方AOSP Qualcomm OMX的IVF写入仅用于调试文件，且并非同机SM8250版本，私有固件额外约定仍未知。
+
+#72试验后正常返回#56，SSH确认running、游戏模式active、0失败服务、仅2GiB ZRAM；settingsStore确认视频硬解false、GPU网页加速true。boot/REC未修改，#72仅保留实验镜像及失败证据。
