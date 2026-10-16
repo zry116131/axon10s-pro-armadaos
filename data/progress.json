@@ -155,5 +155,19 @@
     "installed": true,
     "record": "docs/DSI-CLOCK-TRIALS.md",
     "installed_normal_reboot_verified": true
+  },
+  "audio_capture": {
+    "temporary_candidates_tested": [
+      57,
+      58
+    ],
+    "soundwire_rx_tx_bound_in_58": true,
+    "variant_confirmed": false,
+    "capture_route_verified": false,
+    "recording_tested": false,
+    "installed": false,
+    "trial58_root_handoff_blocked": true,
+    "recovered_to_installed_build": 56,
+    "record": "docs/AUDIO-TRIALS.md"
   }
 }
