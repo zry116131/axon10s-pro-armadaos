@@ -3,8 +3,8 @@
   "target": "ZTE A2020 SP / P865A02",
   "publication_type": "documentation_snapshot",
   "device_count": 1,
-  "installed_kernel_build": 38,
-  "live_temporary_kernel_build": 43,
+  "installed_kernel_build": 43,
+  "live_temporary_kernel_build": null,
   "kwin": "6.7.5-1.fc44.armada",
   "sleep_policy": "fake",
   "native_powerkey_wake_accepted": false,
@@ -19,13 +19,13 @@
   ],
   "artifacts": [
     {
-      "role": "installed_boot_a_38",
+      "role": "previous_boot_a_38_backed_up",
       "sha256": "15da251c83cafee1d985e52f07197dd5ea0b27be34c4b3ac82ea6f216b8ff6d1",
       "size_bytes": 70688768,
       "local_file_rehashed": true
     },
     {
-      "role": "temporary_boot_43",
+      "role": "installed_boot_a_43",
       "sha256": "c673d20f60ff76c4aa7eef87e814975c196a25252fdad77f4324c91957ab1fbd",
       "size_bytes": 70688768,
       "local_file_rehashed": true
@@ -36,5 +36,8 @@
       "size_bytes": 87060480,
       "local_file_rehashed": true
     }
-  ]
+  ],
+  "live_kernel_build": 43,
+  "normal_reboot_runtime_verified": true,
+  "normal_reboot_physical_confirmation": "pending"
 }
