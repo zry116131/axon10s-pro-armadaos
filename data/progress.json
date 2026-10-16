@@ -3,7 +3,7 @@
   "target": "ZTE A2020 SP / P865A02",
   "publication_type": "documentation_snapshot",
   "device_count": 1,
-  "installed_kernel_build": 45,
+  "installed_kernel_build": 54,
   "live_temporary_kernel_build": null,
   "kwin": "6.7.5-1.fc44.armada",
   "sleep_policy": "fake",
@@ -50,11 +50,18 @@
       "size_bytes": 71290880,
       "partition_readback_verified": true,
       "public_download_available": false
+    },
+    {
+      "role": "installed_boot_a_54_pon1",
+      "sha256": "d2fc58c78c1d643afcca3601ba77e07924bbcea159f43bd8c0a7b94c63404aa9",
+      "size_bytes": 71290880,
+      "partition_readback_verified": true,
+      "public_download_available": false
     }
   ],
-  "live_kernel_build": 45,
+  "live_kernel_build": 54,
   "normal_reboot_runtime_verified": true,
-  "normal_reboot_physical_confirmation": "pending for #45; software checks passed after normal reboot",
+  "normal_reboot_physical_confirmation": "pending for #54; software checks passed after normal reboot",
   "long_term_stability_accepted": false,
   "developer_release": {
     "tag": "v0.1.0-dev.20261016",
@@ -105,7 +112,7 @@
     "firmware_power_plane_disable_trial": "failed_no_frames_and_idle_timeout"
   },
   "boot_success": {
-    "installed_build": 45,
+    "installed_build": 54,
     "slot": "a",
     "successful": true,
     "unbootable": false,
@@ -113,7 +120,8 @@
     "normal_reboots_verified_after_mark": 2,
     "record": "docs/BOOT-SUCCESS.md",
     "auto_mark_for_future_installations": false,
-    "retry_count_after_second_verified_boot": 6
+    "retry_count_after_second_verified_boot": 6,
+    "installed54_normal_reboots_verified": 1
   },
   "disk_swap_backup_mib": 2048,
   "swap_policy": "zram_only",
@@ -123,8 +131,9 @@
     "duplicate_registration_resolved_in_trial": true,
     "main_reboot_modes_restored": true,
     "recovery_and_bootloader_routes_verified": true,
-    "installed": false,
+    "installed": true,
     "physical_key_events_verified": false,
-    "record": "docs/PON-VALIDATION.md"
+    "record": "docs/PON-VALIDATION.md",
+    "installed_normal_reboot_verified": true
   }
 }
