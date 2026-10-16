@@ -3,7 +3,7 @@
   "target": "ZTE A2020 SP / P865A02",
   "publication_type": "documentation_snapshot",
   "device_count": 1,
-  "installed_kernel_build": 44,
+  "installed_kernel_build": 45,
   "live_temporary_kernel_build": null,
   "kwin": "6.7.5-1.fc44.armada",
   "sleep_policy": "fake",
@@ -43,11 +43,18 @@
       "local_file_rehashed": true,
       "partition_readback_verified": true,
       "public_download_available": false
+    },
+    {
+      "role": "installed_boot_a_45_zram1",
+      "sha256": "248deb4799d6fd74105e6a5bbff145d351141bcd377fc86aca05184452615536",
+      "size_bytes": 71290880,
+      "partition_readback_verified": true,
+      "public_download_available": false
     }
   ],
-  "live_kernel_build": 44,
+  "live_kernel_build": 45,
   "normal_reboot_runtime_verified": true,
-  "normal_reboot_physical_confirmation": "passed: user confirmed display, touch and HUB keyboard/mouse normal after installed #44 reboot",
+  "normal_reboot_physical_confirmation": "pending for #45; software checks passed after normal reboot",
   "long_term_stability_accepted": false,
   "developer_release": {
     "tag": "v0.1.0-dev.20261016",
@@ -74,7 +81,9 @@
     "displayport_accepted": false
   },
   "runtime_repair_record": "docs/RUNTIME-REPAIRS.md",
-  "compressed_swap_enabled": false,
+  "compressed_swap_enabled": true,
   "disk_swap_mib": 2048,
-  "gpu_freeze_root_cause_resolved": false
+  "gpu_freeze_root_cause_resolved": false,
+  "zram_mib": 2048,
+  "zram_compressor": "lz4"
 }
