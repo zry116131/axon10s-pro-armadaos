@@ -1,0 +1,17 @@
+--- a/drivers/media/platform/qcom/venus/vdec.c
++++ b/drivers/media/platform/qcom/venus/vdec.c
+@@ -577,6 +577,14 @@
+ 
+ 		if (IS_IRIS2(inst->core) && is_fw_rev_or_older(inst->core, 1, 0, 87))
+ 			fdata.device_addr = 0;
++		else if (of_machine_is_compatible("zte,axon10s-pro") &&
++			 IS_IRIS2(inst->core) &&
++			 inst->core->venus_ver.major == 1 &&
++			 inst->core->venus_ver.minor == 0 &&
++			 inst->core->venus_ver.rev == 90 &&
++			 inst->hfi_codec == HFI_VIDEO_CODEC_H264)
++			/* Stock Axon 1.0.90 H264 firmware faults on the dummy EOS address. */
++			fdata.device_addr = 0;
+ 		else
+ 			fdata.device_addr = 0xdeadb000;
+ 

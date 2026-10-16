@@ -1,0 +1,49 @@
+--- a/drivers/media/platform/qcom/venus/vdec.c
++++ b/drivers/media/platform/qcom/venus/vdec.c
+@@ -5,6 +5,7 @@
+  */
+ #include <linux/clk.h>
+ #include <linux/module.h>
++#include <linux/of.h>
+ #include <linux/platform_device.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/slab.h>
+@@ -1109,6 +1110,28 @@
+ 	return ret;
+ }
+ 
++/* Use configured input dimensions with the Axon stock firmware. */
++static int vdec_axon_set_input_resolution(struct venus_inst *inst)
++{
++	if (!of_machine_is_compatible("zte,axon10s-pro") ||
++	    !of_device_is_compatible(inst->core->dev->of_node,
++				     "qcom,sm8250-venus") ||
++	    inst->session_type != VIDC_SESSION_TYPE_DEC ||
++	    inst->core->res->hfi_version != HFI_VERSION_6XX ||
++	    !inst->fmt_out || inst->fmt_out->pixfmt != V4L2_PIX_FMT_H264)
++		return 0;
++
++	if (!inst->out_width || !inst->out_height ||
++	    inst->out_width < frame_width_min(inst) ||
++	    inst->out_width > frame_width_max(inst) ||
++	    inst->out_height < frame_height_min(inst) ||
++	    inst->out_height > frame_height_max(inst))
++		return -EINVAL;
++
++	return venus_helper_set_input_resolution(inst, inst->out_width,
++						 inst->out_height);
++}
++
+ static int vdec_start_output(struct venus_inst *inst)
+ {
+ 	int ret;
+@@ -1142,6 +1165,9 @@
+ 		return -EINVAL;
+ 
+ 	venus_helper_init_instance(inst);
++	ret = vdec_axon_set_input_resolution(inst);
++	if (ret)
++		return ret;
+ 	inst->sequence_out = 0;
+ 	inst->reconfig = false;
+ 	inst->next_buf_last = false;
