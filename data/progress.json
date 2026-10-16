@@ -87,12 +87,14 @@
   "zram_mib": 2048,
   "zram_compressor": "lz4",
   "video_decode": {
-    "status": "output_buffer_configuration_investigation_scratch2_hypothesis_rejected",
+    "status": "h264_short_frame_checks_pass_longer_sessions_still_firmware_crash",
     "temporary_candidates_tested": [
       46,
       47,
       48,
-      49
+      49,
+      50,
+      51
     ],
     "installed_candidate": false,
     "steam_hardware_video_decoding_enabled": false,
