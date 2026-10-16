@@ -159,7 +159,8 @@
   "audio_capture": {
     "temporary_candidates_tested": [
       57,
-      58
+      58,
+      59
     ],
     "soundwire_rx_tx_bound_in_58": true,
     "variant_confirmed": false,
@@ -168,6 +169,10 @@
     "installed": false,
     "trial58_root_handoff_blocked": true,
     "recovered_to_installed_build": 56,
-    "record": "docs/AUDIO-TRIALS.md"
+    "record": "docs/AUDIO-TRIALS.md",
+    "trial59_root_handoff_verified": true,
+    "trial59_early_usb_cleanup_verified": true,
+    "trial58_stall_root_cause_resolved": false,
+    "trial59_soundwire_rx_tx_bound": true
   }
 }
