@@ -64,3 +64,12 @@ Audio candidate follow-up: full source review found no additional blocker beyond
 
 
 Token evidence checkpoint: pinned official downstream `android-11.0.0_r0.18/include/ipc/apr.h` and `dsp/q6afe.c` confirm a32-bit header token and a separate vote hardware-block payload; the caller assigns both from hw_block_id. This does not establish arbitrary-generation echo on the installed DSP firmware. Existing runtime records contain no vote reply token, and current87 inspection found no usable APR/Q6AFE trace events. A default-off, at-most16-record observer design was independently reviewed; it would establish only existing-token behavior, not prove arbitrary-token compatibility. No packet-format change or device mutation was made.
+
+
+### #88 temporary audio observer
+
+Built from87 with13 audio modules made builtin, selective65 audio DT/machine/codec/mixer fixes, reviewed vote isolation and default-off bounded observer explicitly enabled by temporary CMDLINE. Original87 initramfs/USB, quiet console, ICC BWMON, QCE-disabled node and DSI fix retained; independent package review passed, no compiler warnings. ImageSHAae7b6e597803345acfc958f452fc867d5583009378b7a5d3c58bcfd9abcb17c1. Fastboot boot only, no partition flash.
+
+Temporaryboot7552412b-57b5-426f-b56c-40040a475f6a reached activegame mode by18.200s, taint0, nofailedunits, bootdiskRO1 and ALSAcard present. Six observer records show two complete transactions: token3/request0x100f4 → token3/response0x100f5,size4 → ret0; token4 likewise. These prove echo of current hardware-block values only; arbitrary generation tokens remain unverified. SoundWire port-count mismatch warnings and missing DMIC sample-rate message remain recorded, not silently classified as fixed. No microphone acoustic-quality or suspend acceptance follows from this boot. A normal return to installed87 was requested after read-only collection.
+
+Normal reboot returned installed87 in boot7c459ee7-9a8e-4de2-b84c-bce3daaaa681; at20.355s game modeactive, persistents2idle, consoleN/4 4 1 7, taint0, nofailedunits, bootdiskRO1 andonly2GiBZRAM. USB shell was also verified while temporary88 ran. No88installation occurred.
