@@ -232,3 +232,6 @@ Installed87 then passed28.012686186s nativeSteam sleep submitted45.942s after no
 
 
 The installed-policy trial (InvocationID98c82bc4d5ea43edbb7cf62426098097) passed27.720532698s, with policy_source=installed, no runtimeoverride, success+1/failunchanged and no specified DPU errors. After another ordinary reboot, boot8a6645f4-05af-40e5-8e7c-4ccd0c31f46c at19.055s confirmed87, persistents2idle, consoleN/4 4 1 7, activegame mode, taint0, nofailedunits, bootdiskRO1 andonlyZRAM. Current daily policy is therefore native s2idle, with the separate87rollback record retained. This is functional/persistence acceptance; physicaltouch/key on87, isolated battery energy and firmware residency remain unverified.
+
+
+After the game launch/Steam-exit regression, installed-policy native sleep passed27.954594676s (InvocationIDa0ed3edc6b484482b40d38c72a4cc782, same87boot). RTCwakeIRQ128, success0→1/fail0, no runtimeoverride, emptyalarm afterwake; filteredkernel contains onlyPMentry/exit. SSH was temporarily unavailable during this bounded sleep/reconnection window and subsequently recovered.

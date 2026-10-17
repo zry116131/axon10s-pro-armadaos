@@ -39,3 +39,15 @@ CEF GPU 子进程曾退出并恢复；日志出现共享图像/缓冲区错误�
 背光修复位于 `runtime/99-zz-axon-backlight.rules`。部署前确认该面板名、原服务屏蔽及实际 SYSTEMD_WANTS 完全匹配；用 `udevadm verify` 校验后再 reload 和对指定面板触发 change。回滚时只移除本规则并 reload/trigger。该规则不会解除原背光服务屏蔽。
 
 所有原始日志、内网地址、账号、游戏数据、整分区备份留在私有维护环境，不随进度文档发布。
+
+
+### #87 game launch/exit regression
+
+On installed87 with persistent native sleep, a180-second bounded capture covered Silksong1030300 launch, process residency, Steam TerminateApp exit and menu return. All180 samples completed; no new classified kernel/CEF GPU events or global OOM kills, no CEF backlog. GPU-thread-hint process identity1607/start2252 and Gamescope identity1073/start1343 remained stable; both Xwayland identities remained stable. Minimum MemAvailable331492KiB, final2912192KiB. The game process4103 exited after the verified Steam exit API; this is not an in-game-menu graceful-exit claim. Returned Steam UI produced122RAF callbacks over2013ms, max16.8ms. Game-mode service remained active, taint0, no failed units, and only2GiBLZ4ZRAM. Physical scanout and game main-menu rendering are not proven by this telemetry; gameplay and OOM-pressure recovery remain separate validation.
+
+
+### #87 own-mapping ZRAM integrity validation
+
+The kernel lacks CFS bandwidth control, so CPUQuota is not treated as enforced. A separately reviewed candidate used RLIMIT_CPU soft10/hard12s plus1MiB cooperative pacing, with90s service limit, MemoryMax256MiB/SwapMax192MiB and exact87/board/service/game/RTC guards. Independent review caught and fixed combined systemctl service-output acceptance before deployment.
+
+The real test completed with serviceexit0/resultsuccess:128 disjoint1MiB MADV_PAGEOUT requests against only its own guarded128MiB mapping; exact VMA Swap reached131072KiB. Before/after SHA256 botha626d17da2e502f5b4b8e3ebd23f0bf9daef6255688d8e0bb482b3ae3794a682. No new ZRAM IO error counters, cgroup memory-limit/OOM events, global OOM kills or filtered kernel faults; powerd, NetworkManager and game-mode service remainedactive. Swap configuration unchanged, only2GiBLZ4ZRAM. This validates patterned-data pageout/readback integrity, not incompressible game capacity, hard25%CPU quota, all-game OOM recovery or suspend residency.
