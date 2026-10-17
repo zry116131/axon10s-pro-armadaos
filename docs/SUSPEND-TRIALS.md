@@ -185,3 +185,12 @@ Steam RTC trial at page readiness35.937s passed28.751135197s. PM exit was41.860m
 The first ring's ARM_POST→TIMEOUT_ENTER interval is86.125ms. DONE eventually arrives after137.203ms. Later dump printing visibly adds latency, so later errors cannot be treated as undisturbed repetitions. The observed TE callback has no hardware status return. A subsequent canvas probe drew286times/6002ms with TX_DONE+338 over7.008s and cleaned up; physical scanout remains unverified.
 
 Actual core_perf/enable_bw_release reads0, excluding the worker's optional ICC bandwidth-release wait as the explanation in this run. A bounded worker scheduling/stack capture is prepared for a fresh boot to examine the first overflow. Permanent policy remains fake;86 is not installed.
+
+
+### #86 sampled control: scheduling delay near the first overflow
+
+A fresh86 boot with the same native Steam trial passed27.894784519s. A bounded100ms sampler captured427records across35.700–85.629monotonic seconds, terminating on its time limit at509844bytes. PID199 accumulated24.628ms runtime and1473.332ms runqueue wait;13stat samples were runnable. All sampled stacks showed kthread_worker_fn; field reads were sequential and do not prove that every intervening state was idle.
+
+The firstoverflow at43.178054 overlapped a sample whose scheduler wait grew244.898ms. That sample began43.177783 and finished43.327356, so the entire wait cannot be placed strictly before overflow. This supports investigating scheduling delay while leaving cause open. Optional worker bandwidth release was disabled in the preceding identical86 run. Firstoverflow preceded encoder timeout by2.609s.
+
+Configuration audit found forced `console=ttyMSM0,115200n8 loglevel=8 ignore_loglevel`. The GENI legacy console has synchronous polling paths. One86 diagnostic snapshot spans0.703s of captured events but its printing spans12.711s; this is an observer-effect warning, not proof of the original fault. A same-kernel temporary comparison will set ignore_loglevel=N and console level4, preserving the other three printk values, error output and kernel ring/journal. Original values are saved exclusively, and an independent restore timer is armed before either write. No persistent command-line change is made for this comparison.
