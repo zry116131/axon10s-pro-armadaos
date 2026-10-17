@@ -30,3 +30,10 @@ Three enabled consumers lacked matching kernel modules: two BWMON devices and QC
 #84 is installed and normally boots with all12ICC providers synchronized, initial INT_MAX requests removed, generic QCE isolated, original CPU crypto/storage ICE retained, and only2GiBLZ4ZRAM. Boot/REC/GPT verification and #56 rollback backup are recorded. Native s2idle policy survives reboot. Short systemctl/Steam and180-second RTC trials complete, but firmware residency and isolated battery power remain unmeasured.
 
 Display recovery remains open: early-boot native sleep produced DPU frame timeouts, while later systemctl/Steam trials showed hundreds of forced-damage completion interrupts without errors. PM success is not full display acceptance. Investigate this distinction before declaring deep-sleep repair complete. The proposed extra memory test stopped at its CPUQuota guard because CFS_BANDWIDTH is disabled; no test allocation occurred.
+
+
+### 2026-10-17 runtime checkpoint: installed #87
+
+#87 retains84ICC/DSI/ZRAM/DT/initramfs and removes forced verbose serial logging from production CMDLINE (loglevel4; noignore_loglevel). Matched46s controls reproduced DPU errors with verbose output and completed without specified errors with temporary console filtering. Non-diagnostic87 passed short and177.4s native suspend, later drawing/idle transition and USB checks; boot_a installation had full readback, unchangedREC/GPT and restoredRO, and ordinary reboot succeeded. An additional installed87shortnative trial passed. The original84fullpartition backup is independently stored onphone/Mac.
+
+Permanent native sleep has been enabled atomically with a separate original-policy backup; its installed-policy27.7s cycle and reboot-persistence checks passed, as recorded inSUSPEND-TRIALS.md. This is a functional reliability improvement, not measured deep-power acceptance. Isolated standby power, firmware residency,87physicaltouch/key acceptance and gameGPU regression remain open. Hardwarevideo remains globallyoff pendingVPxfirmware compatibility; no unsupported hardware capability is claimed fixed.
