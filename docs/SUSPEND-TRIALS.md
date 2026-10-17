@@ -37,3 +37,12 @@ Systemd suspend currently dispatches through Armada suspend-dispatch; device-env
 Stock /usr/lib/armada/armada_sleep_debug.py qcom() iterates all regular qcom_stats files; ddr_stats can issue QMP freqsync. Private copy changes only that function to allowlist aosd/cxsd. Mock directory confirms no ddr_stats/ddr/SMEM opens; Python compile/import/standalone help and AST equality outside qcom pass. Not installed over system tool. Patch retained in experiments/81-sleep-collector-residency-only.patch.
 
 Existing trace uses private instance,1024KiB/CPU buffer,8,000,000-byte export cap with loss/truncation metadata,24event allowlist and stop cleanup. Includes power callbacks and RPMh sleep/wake filter, but no PSCI-domain events: do not claim those are captured by this tool. Can combine existing CPU s2idle counters with firmware residency.
+
+
+## #81 temporary boot did not reach a confirmed running candidate
+
+Full compile completed; image validation confirms baseline56 DT/initramfs bytes exactly and only reviewed config differences. Image SHA256 `7a363029f41ede799f56ae182e432c0c6d8d9294722ec54fe1b3008f3b6ec26f`. Vendor TFA code emitted compilation warnings during broad rebuild; no successful warning-free-build claim. Fastboot acknowledged temporary boot, but subsequent USB/SSH identified restored installed56. No81 userspace journal exists. Archived console-ramoops contains bootloader output for normal slot boot, not an identified81 kernel panic; cause unproven. No suspend test occurred and no runner/settings were deployed.56 system running, Steam game active, only2GiB ZRAM, no failed system units.
+
+Probe audit: exact rpmh-stats DT causes late_initcall reads at0x0c3f0048/68/88 (names) and0x0c3f00b8 (DDR magic), all within declared0x400 resource. Mapping does not guarantee firmware/security access, but there is no demonstrated out-of-bounds address or saved panic. This node lacks qcom,qmp: qmp_get returns-ENODEV and driver clears the handle; this exact node therefore sends noQMP atprobe, and its ddr_stats reader would not sendQMP either. Earlier collector exclusion addressed generic potential and keeps the intended two-record scope; it is not evidence that this board was sending QMP.
+
+#82 isolation candidate restores QCOM_STATS=m while retaining81 event tracing, with only release name otherwise different. Compile started. First objective is boot isolation, not suspend validation or a claimed fix. No relaxation of81 runner guards.
