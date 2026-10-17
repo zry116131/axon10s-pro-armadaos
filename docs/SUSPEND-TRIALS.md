@@ -140,3 +140,17 @@ Post-long-cycle UI heartbeat returned7callbacks in2201ms with visible page. This
 Read-only kernel evidence reveals repeated DPU frame-done/kickoff timeouts and software frame-event queue overflow after the first installed-policy short sleep, before the long test. The panel remains enabled, DPMS On and backlight743, but UI heartbeat is slow. PM success alone therefore does not accept full device recovery. The overflow message refers to a software event queue and is not proof of memory-bus underflow. A normal reboot baseline and comparative ICC/clock/IRQ investigation are required.
 
 A proposed128MiB own-mapping pageout regression was rejected before allocation because cpu.max is absent. Exact84 has CFS_BANDWIDTH disabled, so the requested CPUQuota cannot be enforced. No pageout or policy change occurred; this trial is not reported as passed.
+
+
+### Persistence and first display comparison
+
+A normal reboot after policy installation confirmed #84, persisted s2idle, no failed units, zero kernel taint and active game service. Fresh boot had no DPU frame/kickoff errors. A separate instrumented systemctl30s trial using a runner with durable stage records and conservative alarm handling passed29.562796812s suspended, success+1/fail0. It did not reproduce the earlier DPU errors. Display ICC request multiplicities, display/DSI clock tree parent/rate/count and core_perf parameters matched before/after.
+
+Post-wake core_irq callback0 is compatible with command-mode idle, which unregisters callbacks until the next kickoff; it is not by itself a display-off diagnosis. JavaScript RAF122/2.018s likewise does not prove physical scanout. Further bounded forced-damage observation is in progress; original display-recovery issue remains open.
+
+
+### Early-boot recurrence and policy rollback
+
+A separate normal boot submitted Steam sleep at monotonic29.992s. RTC woke after28.136263166s, PM success+1/fail0. DPU frame-done timeouts occurred at37.928,38.044 and67.008monotonic seconds, after suspend exit35.161. No pre-suspend wait_for or timeout-pending message was captured. Subsequent311canvas paints/6002.7ms progressed TX_DONE+361 and TE+416 across7.008s monitoring; static observation through approximately298monotonic seconds retained exactly three errors. This reproduces early recovery errors without demonstrating continuous display failure or identifying cause.
+
+Because full display recovery is not accepted, the original fake sleep policy was restored from its exclusive pre-install backup, with metadata preservation and readback verification. #84 remains installed; ICC and ZRAM changes remain in place. Further native tests use temporary overrides and RTC backup. Native-policy persistence was verified historically, but it is not the current daily policy.

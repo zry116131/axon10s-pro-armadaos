@@ -23,3 +23,10 @@ User reaffirmed on2026-10-17 that deep sleep and standby drain must be repaired.
 Temporary82 passed RTC wake, user-confirmed immediate power-key wake, and repeated timed wake with no failed system-suspend callbacks. Display/touch were user-confirmed after the first RTC cycle. This removes the earlier assumption that every native suspend necessarily hangs; power measurement and longer reliability remain open.
 
 Three enabled consumers lacked matching kernel modules: two BWMON devices and QCE. Manually supplying exact82 modules bound all three and allowed all12ICC providers to synchronize; INT_MAX initial votes disappeared. A subsequent28.615s RTC sleep returned with2187successful callbacks. Candidate83 will incorporate the needed drivers into stable56-derived kernel configuration; it is not yet boot-tested or installed. APSS SMEM631 observer returned EINVAL before and after suspend and was unloaded; it supplied no firmware-residency evidence. USB charging prevents an isolated battery standby comparison in the current unattended setup.
+
+
+### 2026-10-17 runtime checkpoint: installed #84
+
+#84 is installed and normally boots with all12ICC providers synchronized, initial INT_MAX requests removed, generic QCE isolated, original CPU crypto/storage ICE retained, and only2GiBLZ4ZRAM. Boot/REC/GPT verification and #56 rollback backup are recorded. Native s2idle policy survives reboot. Short systemctl/Steam and180-second RTC trials complete, but firmware residency and isolated battery power remain unmeasured.
+
+Display recovery remains open: early-boot native sleep produced DPU frame timeouts, while later systemctl/Steam trials showed hundreds of forced-damage completion interrupts without errors. PM success is not full display acceptance. Investigate this distinction before declaring deep-sleep repair complete. The proposed extra memory test stopped at its CPUQuota guard because CFS_BANDWIDTH is disabled; no test allocation occurred.
