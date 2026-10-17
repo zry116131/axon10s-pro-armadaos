@@ -46,3 +46,14 @@ Full compile completed; image validation confirms baseline56 DT/initramfs bytes 
 Probe audit: exact rpmh-stats DT causes late_initcall reads at0x0c3f0048/68/88 (names) and0x0c3f00b8 (DDR magic), all within declared0x400 resource. Mapping does not guarantee firmware/security access, but there is no demonstrated out-of-bounds address or saved panic. This node lacks qcom,qmp: qmp_get returns-ENODEV and driver clears the handle; this exact node therefore sends noQMP atprobe, and its ddr_stats reader would not sendQMP either. Earlier collector exclusion addressed generic potential and keeps the intended two-record scope; it is not evidence that this board was sending QMP.
 
 #82 isolation candidate restores QCOM_STATS=m while retaining81 event tracing, with only release name otherwise different. Compile started. First objective is boot isolation, not suspend validation or a claimed fix. No relaxation of81 runner guards.
+
+
+## #82 trace-only startup succeeds
+
+Image SHA256 `a85423869a124b3d59ebd9880648cfe508454603d067dddab29a2cd3f3dee311`; compile, package and exact56 DT/initramfs preservation passed. Only QCOM_STATS restored to baseline=m relative to81, besides release name. Temporary boot confirmed kernel7.2.6-axon10s-sleeptrace1 #82, system running, game-mode service active, no failed system units and only2GiB ZRAM. power/suspend_resume, device_pm_callback_start/end and rpmh_send_msg interfaces exist. No suspend test or collector deployment occurred.
+
+This successful boot shows minimal event tracing can run on this device and makes built-in stats initialization the next isolation target. One differential boot does not prove a specific failing MMIO instruction or exclude timing-sensitive causes. Preserve82 as a usable callback-tracing diagnostic; do not claim firmware residency is available. Next tasks are device suspend/resume tracing and separately obtaining safe firmware-residency evidence.
+
+The local guarded81 runner was reviewed before deployment: raised child per-file limit4MiB→64MiB because collector's8MB raw trace can expand to48MB JSON; actual subprocess export test passes. Alarm ownership intent/partial-write cleanup and foreign-alarm preservation are mock-tested. Runner remains local-only and requires81+firmware stats; it was not weakened or executed on82.
+
+After82 normal reboot, SSH confirms installed56, system running, active game mode, no failed units, only2GiB ZRAM. No boot/REC writes or persistent sleep-policy changes.
