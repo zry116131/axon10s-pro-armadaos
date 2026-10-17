@@ -97,3 +97,16 @@ Matching82 icc-bwmon bound9091000/90b6400.pmu and released9100000.interconnect s
 Cycle a073e80154534f59b9234301704564cf after these loads suspended28.615s and woke fromRTC128; success+1/fail+0,2187successful callback pairs, no unmatched starts/trace loss. This validates one native-sleep cycle with the repaired votes, not measured battery-power improvement. QCE's proc-crypto selftest field says passed, but CONFIG_CRYPTO_SELFTESTS is disabled; no hardware-vector claim is made from that field.
 
 Optional APSS-only external observer used qcom_smem_get(ANY,631), no stats-SRAM/QMP/DDR probe. It returned unavailable errno=-22 both before and after an additional successful suspend. Observer was unloaded cleanly; out-of-tree taint remains for that temporary boot. Firmware residency remains unavailable.
+
+
+## #83 built-in-driver candidate rejected after QCE test-associated reset
+
+Image6c3769e45a40f9649d7b07ca9910d37f482987d96deb988b55fa00613dce821f booted temporarily as7.2.6-axon10s-iccfix1 #83. System/game mode ran, both BWMON devices and QCE bound, and all12ICC providers synchronized without initial INT_MAX votes. Stable56 DT/initramfs were preserved; config changes were BWMON/QCE/LIB_DES/XTS built-in plus release.
+
+An optional explicit kernel known-answer harness targeted cbc-aes-qce and sha256-qce with1024-byte public reference data. During its loading/execution the device unexpectedly reset and returned to installed56. Archived console contains generic axon_qce_kat module-load/taint at63.667116s followed by bootloader output; no KAT completion/timeout or Linux panic was retained. PS_HOLD/WD labels do not identify the faulty component. The harness lacks persistent phase markers, so the exact reset stage is unknown. Independent source review found no concrete buffer-lifetime/SG overrun, but this does not exclude a harness, driver, DMA or firmware fault. No hardware-vector success is claimed.
+
+83 was NOT flashed. Stable56 returned with active game mode, ZRAM-only swap, unchanged fake policy and read-only boot disk. Full96MiB installed56 backup exists on phone and Mac with SHA256c4767b32484dc0671dcf7238d835eca1d9f720f51fda9e9534c4db61bf76dbf8; fullREC37 hash remainsa8ba929e0fbccf13822673edd5458a3eb81d3c4054ab346bc2d74bada45b8335.
+
+Next candidate84 retains baseline56 QCE configuration, builds in BWMON and disables only the unvalidated generic QCE DT node1dfa000.crypto. This removes its unbound ICC link while retaining CPU crypto and storage ICE; it is isolation of an unvalidated path, not a proven QCE root-cause fix. No cryptobam or security permission change is planned.
+
+Reboot timing correction: the82 shutdown journal shows swap stop1534.329→1535.516 (~1.19s), no swap timeout. A USB snapshot of pending swap jobs was insufficient to label ZRAM stuck. No memory-service/timeout change was made.
