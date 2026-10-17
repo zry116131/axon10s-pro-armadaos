@@ -110,3 +110,21 @@ An optional explicit kernel known-answer harness targeted cbc-aes-qce and sha256
 Next candidate84 retains baseline56 QCE configuration, builds in BWMON and disables only the unvalidated generic QCE DT node1dfa000.crypto. This removes its unbound ICC link while retaining CPU crypto and storage ICE; it is isolation of an unvalidated path, not a proven QCE root-cause fix. No cryptobam or security permission change is planned.
 
 Reboot timing correction: the82 shutdown journal shows swap stop1534.329→1535.516 (~1.19s), no swap timeout. A USB snapshot of pending swap jobs was insufficient to label ZRAM stuck. No memory-service/timeout change was made.
+
+
+## #84 installed and native sleep policy enabled
+
+Kernel 7.2.6-axon10s-iccguard1 #84 builds in BWMON and disables only the generic QCE DT node. All 12 ICC providers synchronize and initial INT_MAX votes disappear. CPU crypto configuration and storage ICE remain unchanged; QCE isolation does not establish the cause of the #83 reset.
+
+Temporary systemctl and Steam entries suspended 29.1414 and 25.3251 seconds respectively with RTC wake and no new suspend failures. The payload SHA256 is 7e20edd762b37b19ff11699c03cc227edabaf2606e40f63153fd267185d943a6. Full boot_a readback is a0721acb9dddadf437857e450f9223bb34a8df0ca502055c2affb6817f650190. All 24 GPT regions and REC37 were unchanged; boot disk read-only was restored. A subsequent normal reboot confirmed installed #84 and active game mode.
+
+Permanent sleep.conf now contains suspend_mode=s2idle, with its original policy saved before atomic replacement. A separate installed-policy Steam trial, without a runtime override, suspended 28.737809572 seconds, incremented success by one with no failure increase, and woke on RTC IRQ128. Temporary policy paths were absent afterward. A later reboot is still needed to verify persistence across reboot after this policy installation.
+
+These are functional native suspend/resume results. Firmware residency and battery standby consumption remain unmeasured with USB charging connected. Software UI heartbeat passed after the temporary Steam cycle; it does not replace physical touch or panel verification on #84.
+
+
+### Longer trial remains unresolved
+
+A separately reviewed 180-second installed-policy Steam trial was submitted as axon-long-suspend84.service. After its expected wake, SSH timed out, USB modem devices and fastboot were absent, and ping did not answer. No result JSON or post-entry kernel evidence could be retrieved. This is not a pass and does not distinguish failure to wake from loss of both communication paths after wake. No physical action was available and no remote reset was performed. Post-policy reboot validation and further hardware tests are deferred until access returns.
+
+Runner comparison found no duration or RTC-unit conversion error. Review identified an inherited asynchronous-entry risk: if the Steam URI command times out before suspend actually starts, generic failure cleanup can clear the backup alarm while an accepted asynchronous sleep request remains pending. This is a possible harness defect, not an established explanation for this device's loss of access. A separate corrected runner must preserve the alarm when submission is uncertain and persist pre-entry phase evidence before any further trial.
