@@ -1,0 +1,13 @@
+--- a/usr/lib/armada/armada_sleep_debug.py
++++ b/usr/lib/armada/armada_sleep_debug.py
+@@ -310,7 +310,9 @@
+ 
+ 
+ def qcom():
+-    return {p.name: read(p) for p in (SYS / 'kernel/debug/qcom_stats').glob('*') if p.is_file()}
++    # SoC residency records only: ddr_stats may issue a QMP freqsync request.
++    root = SYS / 'kernel/debug/qcom_stats'
++    return {name: read(root / name) for name in ('aosd', 'cxsd') if (root / name).is_file()}
+ 
+ 
+ def processes():
