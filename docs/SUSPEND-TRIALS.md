@@ -123,8 +123,20 @@ Permanent sleep.conf now contains suspend_mode=s2idle, with its original policy 
 These are functional native suspend/resume results. Firmware residency and battery standby consumption remain unmeasured with USB charging connected. Software UI heartbeat passed after the temporary Steam cycle; it does not replace physical touch or panel verification on #84.
 
 
-### Longer trial remains unresolved
+### Longer trial: initial access gap, then verified recovery
 
 A separately reviewed 180-second installed-policy Steam trial was submitted as axon-long-suspend84.service. After its expected wake, SSH timed out, USB modem devices and fastboot were absent, and ping did not answer. No result JSON or post-entry kernel evidence could be retrieved. This is not a pass and does not distinguish failure to wake from loss of both communication paths after wake. No physical action was available and no remote reset was performed. Post-policy reboot validation and further hardware tests are deferred until access returns.
 
 Runner comparison found no duration or RTC-unit conversion error. Review identified an inherited asynchronous-entry risk: if the Steam URI command times out before suspend actually starts, generic failure cleanup can clear the backup alarm while an accepted asynchronous sleep request remains pending. This is a possible harness defect, not an established explanation for this device's loss of access. A separate corrected runner must preserve the alarm when submission is uncertain and persist pre-entry phase evidence before any further trial.
+
+
+Subsequent evidence resolves this access gap: the same #84 boot returned, and the original runner JSON reports operational-pass with no errors. BOOTTIME minus MONOTONIC gives 174.069180557 seconds suspended, success1→2/fail0, RTC128, empty alarm and preserved installed policy. Device wall-clock journal shows entry at15:09:38+08 and resume at approximately15:12:36; the earlier presumed deadline used an imprecise launch estimate. NetworkManager reconnect completed at15:12:51. No remote reset or physical assistance occurred. This validates the 180-second trial, not overnight reliability or battery energy. The generic asynchronous-cleanup risk remains worth fixing but is not evidenced in this successful cycle.
+
+Post-long-cycle UI heartbeat returned7callbacks in2201ms with visible page. This shows responsiveness but is insufficient to claim normal animation smoothness; idle throttling/display state needs separate interpretation.
+
+
+### Display recovery is not accepted
+
+Read-only kernel evidence reveals repeated DPU frame-done/kickoff timeouts and software frame-event queue overflow after the first installed-policy short sleep, before the long test. The panel remains enabled, DPMS On and backlight743, but UI heartbeat is slow. PM success alone therefore does not accept full device recovery. The overflow message refers to a software event queue and is not proof of memory-bus underflow. A normal reboot baseline and comparative ICC/clock/IRQ investigation are required.
+
+A proposed128MiB own-mapping pageout regression was rejected before allocation because cpu.max is absent. Exact84 has CFS_BANDWIDTH disabled, so the requested CPUQuota cannot be enforced. No pageout or policy change occurred; this trial is not reported as passed.
