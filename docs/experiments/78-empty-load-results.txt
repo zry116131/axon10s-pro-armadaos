@@ -1,0 +1,13 @@
+7.2.6-axon10s-video-vpxcombined1
+driver=qcom-venus card=Qualcomm Venus video decoder
+OUTPUT format=0x30385056 width=320 height=240 size=491520 planes=1 colorspace=0
+CAPTURE width=320 height=256 size=147456 planes=1 colorspace=0
+session initialized: allocated=4, no QBUF; will STREAMON empty queue
+STREAMON empty: Input/output error
+probe_exit=1
+[   55.554986] axon10s-armada kernel: qcom-venus aa00000.video-codec: AXON_VPX_FW  <VFW_H:HostDr:unkn:--------:-> HostDriver: VPx Decode Session Created
+[   55.556187] axon10s-armada kernel: qcom-venus aa00000.video-codec: AXON_VPX_FW  <VFW_H:HostDr:vp8d:d0ef1000:00000000> Uncompressed Format Select;
+[   55.556877] axon10s-armada kernel: qcom-venus aa00000.video-codec: AXON_VPX_FW  <VFW_H:HostDr:vp8d:d0ef1000:00000000> Uncompressed Format Select;
+[   55.578382] axon10s-armada kernel: qcom-venus aa00000.video-codec: AXON_VPX_FW  <VFW_H:HostDr:vp8d:d0ef1000:00000000> VenusDecoder: LOAD_RESOURCES
+[   55.579370] axon10s-armada kernel: qcom-venus aa00000.video-codec: AXON_VPX_FW  <VFW_H:HostDr:vp8d:d0ef1000:00000000> VenusDecoder: Load Resources Command received in Invalid State 4
+[   55.683396] axon10s-armada kernel: qcom-venus aa00000.video-codec: SFR message from FW: QC_IMAGE_VERSION_STRING=VIDEO.VPU.1.0-00090-PROD-1 Err_Fatal - Z:/b/venus_proc/venus/decoders/vpx/src/vpx_decoder.c:1126:67861

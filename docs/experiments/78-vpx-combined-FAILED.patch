@@ -1,0 +1,123 @@
+--- a/drivers/media/platform/qcom/venus/vdec.c
++++ b/drivers/media/platform/qcom/venus/vdec.c
+@@ -710,12 +710,45 @@
+ 	pm_runtime_mark_last_busy(inst->core->dev_dec);
+ }
+ 
++/* Experimental stock-firmware compatibility: downstream initialization defaults. */
++static int vdec_axon_set_vpx_profile(struct venus_inst *inst)
++{
++	struct hfi_profile_level profile;
++
++	if (!of_machine_is_compatible("zte,axon10s-pro") ||
++	    !of_device_is_compatible(inst->core->dev->of_node,
++				     "qcom,sm8250-venus") ||
++	    inst->session_type != VIDC_SESSION_TYPE_DEC ||
++	    inst->core->res->hfi_version != HFI_VERSION_6XX ||
++	    inst->core->venus_ver.major != 1 ||
++	    inst->core->venus_ver.minor != 0 ||
++	    inst->core->venus_ver.rev != 90 || !inst->fmt_out)
++		return 0;
++
++	if (inst->fmt_out->pixfmt == V4L2_PIX_FMT_VP8) {
++		profile.profile = HFI_VPX_PROFILE_MAIN;
++		profile.level = HFI_VPX_LEVEL_VERSION_3;
++	} else if (inst->fmt_out->pixfmt == V4L2_PIX_FMT_VP9) {
++		profile.profile = HFI_VP9_PROFILE_P0;
++		profile.level = HFI_VP9_LEVEL_61;
++	} else {
++		return 0;
++	}
++
++	return hfi_session_set_property(inst,
++		HFI_PROPERTY_PARAM_PROFILE_LEVEL_CURRENT, &profile);
++}
++
+ static int vdec_set_properties(struct venus_inst *inst)
+ {
+ 	struct vdec_controls *ctr = &inst->controls.dec;
+ 	struct hfi_enable en = { .enable = 1 };
+ 	u32 ptype, decode_order, conceal;
+ 	int ret;
++
++	ret = vdec_axon_set_vpx_profile(inst);
++	if (ret)
++		return ret;
+ 
+ 	if (ctr->post_loop_deb_mode) {
+ 		ptype = HFI_PROPERTY_CONFIG_VDEC_POST_LOOP_DEBLOCKER;
+@@ -769,6 +802,48 @@
+ #define is_10bit_ubwc_fmt(fmt) (!!((fmt) & HFI_COLOR_FORMAT_10_BIT_BASE & \
+ 				 HFI_COLOR_FORMAT_UBWC_BASE))
+ 
++
++/* Experimental downstream secondary-output property order for stock VPx. */
++static int vdec_set_dpb_stream_properties(struct venus_inst *inst)
++{
++	struct hfi_multi_stream multi;
++	int ret;
++	bool axon_vpx = of_machine_is_compatible("zte,axon10s-pro") &&
++		of_device_is_compatible(inst->core->dev->of_node,
++					"qcom,sm8250-venus") &&
++		inst->session_type == VIDC_SESSION_TYPE_DEC &&
++		inst->core->res->hfi_version == HFI_VERSION_6XX &&
++		inst->core->venus_ver.major == 1 &&
++		inst->core->venus_ver.minor == 0 &&
++		inst->core->venus_ver.rev == 90 && inst->fmt_out &&
++		(inst->fmt_out->pixfmt == V4L2_PIX_FMT_VP8 ||
++		 inst->fmt_out->pixfmt == V4L2_PIX_FMT_VP9) &&
++		inst->opb_buftype == HFI_BUFFER_OUTPUT2 &&
++		inst->dpb_buftype == HFI_BUFFER_OUTPUT;
++
++	if (!axon_vpx) {
++		ret = venus_helper_set_multistream(inst, false, true);
++		if (ret)
++			return ret;
++		return venus_helper_set_raw_format(inst, inst->dpb_fmt,
++						 inst->dpb_buftype);
++	}
++
++	ret = venus_helper_set_raw_format(inst, inst->dpb_fmt,
++					  inst->dpb_buftype);
++	if (ret)
++		return ret;
++	multi.buffer_type = HFI_BUFFER_OUTPUT2;
++	multi.enable = true;
++	ret = hfi_session_set_property(inst, HFI_PROPERTY_PARAM_VDEC_MULTI_STREAM,
++				       &multi);
++	if (ret)
++		return ret;
++	multi.buffer_type = HFI_BUFFER_OUTPUT;
++	multi.enable = false;
++	return hfi_session_set_property(inst, HFI_PROPERTY_PARAM_VDEC_MULTI_STREAM,
++					&multi);
++}
+ 
+ static int vdec_output_conf(struct venus_inst *inst)
+ {
+@@ -838,12 +913,7 @@
+ 		return ret;
+ 
+ 	if (inst->dpb_fmt) {
+-		ret = venus_helper_set_multistream(inst, false, true);
+-		if (ret)
+-			return ret;
+-
+-		ret = venus_helper_set_raw_format(inst, inst->dpb_fmt,
+-						  inst->dpb_buftype);
++		ret = vdec_set_dpb_stream_properties(inst);
+ 		if (ret)
+ 			return ret;
+ 
+@@ -1142,7 +1212,10 @@
+ 				     "qcom,sm8250-venus") ||
+ 	    inst->session_type != VIDC_SESSION_TYPE_DEC ||
+ 	    inst->core->res->hfi_version != HFI_VERSION_6XX ||
+-	    !inst->fmt_out || inst->fmt_out->pixfmt != V4L2_PIX_FMT_H264)
++	    !inst->fmt_out ||
++	    (inst->fmt_out->pixfmt != V4L2_PIX_FMT_H264 &&
++	     inst->fmt_out->pixfmt != V4L2_PIX_FMT_VP8 &&
++	     inst->fmt_out->pixfmt != V4L2_PIX_FMT_VP9))
+ 		return 0;
+ 
+ 	if (!inst->out_width || !inst->out_height ||

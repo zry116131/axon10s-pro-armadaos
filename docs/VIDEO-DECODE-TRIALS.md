@@ -376,3 +376,16 @@ The empty-queue probe and H264 control are now the minimal reproduction for pre-
 After#77, normal reboot restored installed#56. USB/SSH verify system running, game-mode user unit active, no failed system units, only2GiB ZRAM; settings video=false/webviews=true. Neither#76 nor#77 installed.
 
 Allocation-mode audit correction: helper-level calls do not prove wire behavior. Current HFI6 serializer falls through4xx; PARAM_BUFFER_ALLOC_MODE returns-ENOTSUPP, and venus_session_set_property treats it as success without queue write. Thus mainline does not actually send dynamic OUTPUT/OUTPUT2. Pinned downstream OUTPUT_PORT=STATIC is compressed input, not DPB; CAPTURE_PORT=DYNAMIC skips the DPB STATIC pre-registration branch. No allocation-mode send was found in those downstream paths, and firmware default cannot be inferred from them. No mode-change candidate warranted.
+
+
+## Rejected #78 combined VPx initialization
+
+Exact union of #72 input size, #76 profile defaults and #77 secondary-output ordering, based on #71 plus #75 bounded firmware logging. All six patch application orders produced identical source; extracted-helper ASan/UBSan tests, independent review, compilation and image preservation checks passed. Source SHA256 `4597a4350c19e47fe68df4e9a65b58b5367b4a16e961b24e43bd725ed058f0e2`; image SHA256 `b703094d603253c35e7ca34a055e5306fd0ea9b767ab1017d45d9d539051f52d`, kernel `7.2.6-axon10s-video-vpxcombined1`. #72 original guard remains unchanged; do not describe the whole union as exact firmware gated.
+
+After an interrupted tool session, live verification found installed #56. Previous-boot logs showed #78 had booted and later shut down normally, but no completed probe was recorded. This was not counted as a test failure. The same verified image was temporarily booted again for the actual trial below.
+
+One direct VP8 empty OUTPUT STREAMON, with zero QBUF/bitstream/ETB, returned EIO and probe exit1. Firmware LOAD_RESOURCES at55.578382, Invalid State4 at55.579370, then vpx_decoder.c:1126:67861 fatal at55.683396. The combined candidate therefore also fails before decoding; no full-stream or VP9 trial followed. Debug level restored0x18. Patch retained only as experiments/78-vpx-combined-FAILED.patch, outside the production patch chain; bounded evidence in78-empty-load-results.txt. No boot/REC writes.
+
+Next diagnostic: capture the bounded raw SYS_INIT_DONE codec capability reply before HFI6 static platform parsing. Firmware-advertised support must be distinguished from resource-load/decode success. Do not add speculative properties or bypass LOAD_RESOURCES.
+
+After #78, USB confirmed #56 during startup; SSH subsequently verified kernel7.2.6-axon10s-dsiclkfix1, system running, game-mode service active, no failed system units and only2GiB ZRAM. Steam settings readback video=false/webviews=true.
