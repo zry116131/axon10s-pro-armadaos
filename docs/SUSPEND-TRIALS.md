@@ -161,3 +161,16 @@ Because full display recovery is not accepted, the original fake sleep policy wa
 Validated #56 was fastboot-booted temporarily; installed #84 and REC were not overwritten. Steam sleep submitted at monotonic28.692s under a temporary native override while permanent policy remained fake. PM/RTC passed27.763518635s, but the58.042s snapshot already contained15DPU frame/kickoff/queue errors. ICC still contained41INT_MAX tokens. Thus the defect also exists with the prior kernel and its initial bandwidth floor; #84 did not uniquely introduce it. This does not identify the original fault.
 
 The paint probe drew220updates/6000.8ms with a683.4ms maximum callback interval; TX_DONE increased331 over7.133s while the TE callback count stayed488. These are intermittent progress, not full display acceptance. A bounded per-encoder event-ring diagnostic candidate is being built to distinguish kickoff, completion and timer ordering without changing their behavior.
+
+
+### #85 bounded diagnostic: first failure follows idle
+
+Temporary kernel7.2.6-axon10s-dpudiag1 #85 adds a board-scoped16-record memory ring, with at most three timeout dumps per encoder. No timer, callback or resource-control behavior was intentionally changed. Embedded DT/initramfs match installed84 exactly; permanent policy remains fake. Payload SHA2564deea046013980d6b069e375aa9cd563fb23bec282f4164358d2c2bb594fe8f2. Installed boot and REC were not overwritten.
+
+The first request at24.511s did not produce a PM transition. The corrected harness reported submission-uncertain, retained its alarm/runtime override, and a deliberate reboot cleared that session before another attempt. After page readiness at35.199s in a fresh boot, Steam/RTC sleep passed27.315182542s with success0→1/fail0. A display timeout occurred about3.336s after PM exit, beyond the harness's immediate successful snapshot.
+
+The ring shows two earlier completed frames, then the idle callback (event detail8), a new kickoff53.895ms later and an83ms watchdog firing86.053ms after arm. No instrumented DONE callback appears between that kickoff and timeout. This first failure does not show the proposed timer-arm-after-completion ordering. The record cannot prove whether hardware generated an interrupt or explain why completion was absent. Ring fields are independent samples and instrumentation affects timing.
+
+Five later software event-queue overflows were observed. Source inspection identifies a possible secondary accounting problem: an event dropped when the four-slot pool is full does not decrement frame_pending, while pending>1 suppresses idle scheduling. Late DONE after a timeout may also affect accounting, so five overflow messages cannot be equated to five leaked frames. A later bounded canvas probe completed318draws/6002ms with TX_DONE+319 over7.010s; the event workers were sleeping when inspected. These results establish later progress, not reliable recovery or a physical panel pass. A burst probe failed in its own JavaScript before completing; its failed result is retained and excluded from driver conclusions.
+
+The next diagnostic adds resource/IRQ/TE call boundaries and pending counts to distinguish the initial failure from secondary idle inhibition. It remains a diagnostic, with no claimed fix or standby-energy result.
