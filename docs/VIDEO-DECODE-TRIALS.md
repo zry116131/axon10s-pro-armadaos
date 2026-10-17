@@ -405,3 +405,12 @@ Focused follow-up source audit rejects a blind static-parser bypass: hfi_parser.
 
 Normal reboot restored installed #56; USB and SSH verified kernel, system running, active game-mode service, no failed system units and only2GiB ZRAM.
 Steam readback after startup confirmed video=false/webviews=true; initial CDP connection refusal resolved when Steam finished starting.
+
+
+## #91 offline H264-only compatibility candidate
+
+An explicit default-off, boot-read-only `venus_dec.axon_h264_compat` option restricts the Axon/SM8250/HFI6 decoder to H264 when enabled. It is independent of asynchronously received firmware-version metadata. Both format lookup and contiguous enumeration filter compressed formats; S_FMT rejects the original non-H264 OUTPUT_MPLANE fourcc before TRY_FMT can substitute H264, queue access or instance changes. Raw capture formats, encoder, other devices and disabled-mode behavior remain unchanged. TRY_FMT retains its normal fallback semantics; mislabeled compressed payloads are outside format filtering. This profile affects all clients of the decoder, not CEF alone, and does not repair VPx firmware support.
+
+Actual-function Werror/ASan/UBSan tests and independent source review passed. Full91 compile/package and independent preservation review passed without warnings. SourceSHA915e26bcf532e2218fbe106dcd406c9acf374e1c002f6873bf7af850e6476ccf; imageSHA6d9af326b5305b599696fa6d38cd8e3657143f4ea845c983cd4243f30fc1b76b. Build starts from87 quiet/ICC/ZRAM config and DT, adds Venus and existing71 real-EOS fixes, and explicitly enables the compatibility option in the candidate CMDLINE. Original44/87 initramfs entries are unchanged; archive48 only adds Venus firmware and directory entries. No90 audio overlays are included.
+
+No91 boot or CEF fallback validation has occurred at this checkpoint. Phone remains installed87 with hardware video globally disabled. Required next checks: temporary boot identity/firmware/policy; H264-only OUTPUT enumeration; non-H264 S_FMT rejection; actual H264 playback and VP8/VP9 software fallback without Venus fatal/LOAD failures across Steam startup; cleanup and return87. Do not report restricted format exposure alone as functioning fallback.
