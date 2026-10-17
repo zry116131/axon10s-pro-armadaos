@@ -1,0 +1,10 @@
+[   54.139418] axon10s-armada kernel: qcom-soundwire 3230000.soundwire: AXON_SWR_TRACE snapshot_ns=54107920596 irq=0x600 masked=0x600 entries=8 total=8 correlation=unproven frozen=1
+[   54.139853] axon10s-armada kernel: qcom-soundwire 3230000.soundwire: AXON_SWR_TRACE seq=1 cmd=1 ns=4756963071 phase=0 attempt=0 dev=1 reg=0x41 len=1 expected_id=1 returned_id=0 returned_valid=0 read_ret=0
+[   54.140037] axon10s-armada kernel: qcom-soundwire 3230000.soundwire: AXON_SWR_TRACE seq=2 cmd=1 ns=4757228123 phase=1 attempt=0 dev=1 reg=0x41 len=1 expected_id=1 returned_id=1 returned_valid=1 read_ret=0
+[   54.173491] axon10s-armada kernel: qcom-soundwire 3230000.soundwire: AXON_SWR_TRACE seq=3 cmd=2 ns=4758601560 phase=0 attempt=0 dev=1 reg=0x34b0 len=1 expected_id=2 returned_id=0 returned_valid=0 read_ret=0
+[   54.174584] axon10s-armada kernel: qcom-soundwire 3230000.soundwire: AXON_SWR_TRACE seq=4 cmd=2 ns=4758878019 phase=1 attempt=0 dev=1 reg=0x34b0 len=1 expected_id=2 returned_id=2 returned_valid=1 read_ret=0
+[   54.207684] axon10s-armada kernel: qcom-soundwire 3230000.soundwire: AXON_SWR_TRACE seq=5 cmd=3 ns=54106274029 phase=0 attempt=0 dev=1 reg=0x102 len=1 expected_id=3 returned_id=0 returned_valid=0 read_ret=0
+[   54.208814] axon10s-armada kernel: qcom-soundwire 3230000.soundwire: AXON_SWR_TRACE seq=6 cmd=3 ns=54106562155 phase=1 attempt=0 dev=1 reg=0x102 len=1 expected_id=3 returned_id=3 returned_valid=1 read_ret=0
+[   54.241617] axon10s-armada kernel: qcom-soundwire 3230000.soundwire: AXON_SWR_TRACE seq=7 cmd=4 ns=54107273407 phase=0 attempt=0 dev=1 reg=0x102 len=1 expected_id=4 returned_id=0 returned_valid=0 read_ret=0
+[   54.243020] axon10s-armada kernel: qcom-soundwire 3230000.soundwire: AXON_SWR_TRACE seq=8 cmd=4 ns=54107549137 phase=1 attempt=0 dev=1 reg=0x102 len=1 expected_id=4 returned_id=4 returned_valid=1 read_ret=0
+[   54.268425] axon10s-armada kernel: qcom-soundwire 3230000.soundwire: qcom_swrm_irq_handler: SWR read enable valid mismatch

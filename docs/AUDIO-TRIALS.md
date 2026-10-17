@@ -129,3 +129,16 @@ BOB 仍为 3032 mV，S4A 1800 mV；ADC1、ADC1_MIXER 均 off，TX DEC0 MUX 为�
 临时启动 #65 声卡正常注册，恢复服务因 VA 已绑定而不操作，UCM 自动建立 Speaker/Mic。约5.08秒 PipeWire 测试采集487680个交错s16样本，700/1100Hz对应窗口能量明显上升并结束后下降，play/capture返回0；音量恢复，PCM closed、四个麦克风 DAPM节点全Off，临时音频删除。此次未记录 AFE vote/unvote错误；首次录音仍记录SoundWire bit9警告。因此功能回归通过，不等同启动稳定性和SoundWire问题解决。未写 boot/REC。
 
 #65 测试后已恢复安装版 #56：TFA声卡、Steam独立游戏模式和仅2GiB ZRAM正常，恢复服务按条件跳过，无失败系统服务。
+
+
+## #80: bounded SoundWire read metadata diagnostic
+
+Based exactly on #65 audio behavior. Board-gated per-controller16-event ring records software timestamps, command IDs, read register/length, result ID validity, retry/timeout phases; excludes returned register data. A coherent once-only snapshot on the first already-read masked bit9 status occurs before other IRQ branch callbacks. No extra register accesses, original operation ordering/waits/returns and bit9 mask block preserved. Actual-helper ASan/UBSan/Werror concurrency/wrap/freeze tests and parent/independent preservation review passed; kernel compile and image preservation checks passed. Source SHA256 `cbf5419e3ef4d1b10efa2d42683f7a66277743a8f18ac1f04258e90b811591b8`; temporary image SHA256 `441abe9ec198cdaed9d1721780d86cf1adb229fe1d30ccb608694efbc2e760d5`. DT, initramfs59 and original five overlays preserved from65.
+
+Actual first capture reproduced bit9 with IRQ/masked0x600 (bit9 plus SPECIAL_CMD_ID_FINISHED bit10). Snapshot at54.107920596s contains only four complete read transactions, all expected/returned IDs match and read_ret0; no recorded retry/timeout. Two startup reads were0x41/0x34b0 at4.756..4.759s. The two recent reads were0x102 at54.106274..54.106562s and54.107273..54.107549s, both dev1/len1, IDs3/4. Thus no read-command ID mismatch was observed in the captured window. This does not prove the latest read caused the IRQ: writes/broadcast metadata are not recorded and bit10 is simultaneous. Original bit9 masking remains; absence of later warnings is still not proof of recovery.
+
+Known-tone PipeWire capture/play both exit0;4.98s/478080 interleaved s16 samples.700/1100Hz windows respond and decline afterward. Both peaks reached32768: clipping/quality is not passed. ALSA hardware formatS24_LE, client requestsS16_LE via PipeWire conversion. Volume restored, PCM closed, four microphone DAPM nodes Off, temporary raw/WAV files absent before reboot. No claim of full audio stability. Patch and bounded log retained as diagnostic-only experiments/80-*.
+
+User additionally requires real deep-sleep/standby power repair. Prioritize native suspend/wake after this diagnostic rollback; simulated screen-off sleep does not satisfy that requirement. Validate actual idle power and reliable wake plus display/touch/network/audio recovery before completion.
+
+After #80, USB/SSH confirmed installed #56, system running, active Steam game mode, no failed system units and only2GiB ZRAM. No boot/REC writes.

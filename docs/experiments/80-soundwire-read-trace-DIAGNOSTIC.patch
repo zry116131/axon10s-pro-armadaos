@@ -1,0 +1,223 @@
+--- a/drivers/soundwire/qcom.c
++++ b/drivers/soundwire/qcom.c
+@@ -4,6 +4,8 @@
+ #include <linux/clk.h>
+ #include <linux/completion.h>
+ #include <linux/interrupt.h>
++#include <linux/ktime.h>
++#include <linux/spinlock.h>
+ #include <linux/io.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+@@ -185,6 +187,38 @@
+ 	SWRM_OFFSET_DP_SAMPLECTRL2_BANK,
+ };
+ 
++/* AXON diagnostic metadata only; no returned register data is retained. */
++#define AXON_SWR_TRACE_DEPTH 16
++
++enum axon_swr_trace_phase {
++	AXON_SWR_SUBMIT,
++	AXON_SWR_RESULT,
++	AXON_SWR_RETRY,
++	AXON_SWR_TIMEOUT,
++};
++
++struct axon_swr_trace_event {
++	u64 sequence;
++	u64 command;
++	u64 time_ns;
++	u32 packed;
++	int read_ret;
++	u8 phase;
++	u8 attempt;
++	u8 returned_id;
++};
++
++struct axon_swr_trace {
++	spinlock_t lock;
++	bool enabled;
++	bool frozen;
++	u32 head;
++	u32 count;
++	u64 sequence;
++	u64 command;
++	struct axon_swr_trace_event events[AXON_SWR_TRACE_DEPTH];
++};
++
+ struct qcom_swrm_ctrl {
+ 	struct sdw_bus bus;
+ 	struct device *dev;
+@@ -222,6 +256,7 @@
+ 	u32 slave_status;
+ 	u32 wr_fifo_depth;
+ 	bool clock_stop_not_supported;
++	struct axon_swr_trace axon_trace;
+ };
+ 
+ struct qcom_swrm_data {
+@@ -526,11 +561,98 @@
+ 	return ret;
+ }
+ 
++/* All timestamps describe software observation, not a proven IRQ cause. */
++static u64 axon_swr_trace_record(struct qcom_swrm_ctrl *ctrl, u64 command,
++			       u32 packed, enum axon_swr_trace_phase phase,
++			       u8 attempt, u8 returned_id, int read_ret)
++{
++	struct axon_swr_trace *trace = &ctrl->axon_trace;
++	struct axon_swr_trace_event *event;
++	unsigned long flags;
++
++	if (!trace->enabled)
++		return 0;
++
++	spin_lock_irqsave(&trace->lock, flags);
++	if (trace->frozen) {
++		spin_unlock_irqrestore(&trace->lock, flags);
++		return 0;
++	}
++	if (phase == AXON_SWR_SUBMIT)
++		command = ++trace->command;
++	if (!command) {
++		spin_unlock_irqrestore(&trace->lock, flags);
++		return 0;
++	}
++	event = &trace->events[trace->head];
++	event->sequence = ++trace->sequence;
++	event->command = command;
++	event->time_ns = ktime_get_ns();
++	event->packed = packed;
++	event->read_ret = read_ret;
++	event->phase = phase;
++	event->attempt = attempt;
++	event->returned_id = returned_id;
++	trace->head = (trace->head + 1) % AXON_SWR_TRACE_DEPTH;
++	if (trace->count < AXON_SWR_TRACE_DEPTH)
++		trace->count++;
++	spin_unlock_irqrestore(&trace->lock, flags);
++
++	return command;
++}
++
++static void axon_swr_trace_irq(struct qcom_swrm_ctrl *ctrl,
++			       u32 intr_sts, u32 intr_sts_masked)
++{
++	struct axon_swr_trace *trace = &ctrl->axon_trace;
++	struct axon_swr_trace_event events[AXON_SWR_TRACE_DEPTH];
++	unsigned long flags;
++	u64 sequence, time_ns;
++	u32 count, first, i;
++
++	if (!trace->enabled ||
++	    !(intr_sts_masked & SWRM_INTERRUPT_STATUS_READ_EN_RD_VALID_MISMATCH))
++		return;
++
++	spin_lock_irqsave(&trace->lock, flags);
++	if (trace->frozen) {
++		spin_unlock_irqrestore(&trace->lock, flags);
++		return;
++	}
++	trace->frozen = true;
++	count = trace->count;
++	sequence = trace->sequence;
++	time_ns = ktime_get_ns();
++	first = (trace->head + AXON_SWR_TRACE_DEPTH - count) % AXON_SWR_TRACE_DEPTH;
++	for (i = 0; i < count; i++)
++		events[i] = trace->events[(first + i) % AXON_SWR_TRACE_DEPTH];
++	spin_unlock_irqrestore(&trace->lock, flags);
++
++	dev_info(ctrl->dev, "AXON_SWR_TRACE snapshot_ns=%llu irq=%#x masked=%#x entries=%u total=%llu correlation=unproven frozen=1\n",
++		 (unsigned long long)time_ns, intr_sts, intr_sts_masked,
++		 count, (unsigned long long)sequence);
++	for (i = 0; i < count; i++) {
++		const struct axon_swr_trace_event *event = &events[i];
++
++		dev_info(ctrl->dev, "AXON_SWR_TRACE seq=%llu cmd=%llu ns=%llu phase=%u attempt=%u dev=%u reg=%#x len=%u expected_id=%u returned_id=%u returned_valid=%u read_ret=%d\n",
++			 (unsigned long long)event->sequence,
++			 (unsigned long long)event->command,
++			 (unsigned long long)event->time_ns,
++			 event->phase, event->attempt, (event->packed >> 20) & 0xf,
++			 event->packed & 0xffff, event->packed >> 24,
++			 (event->packed >> 16) & 0xf, event->returned_id,
++			 event->phase == AXON_SWR_RESULT && event->read_ret == SDW_CMD_OK,
++			 event->read_ret);
++	}
++}
++
+ static int qcom_swrm_cmd_fifo_rd_cmd(struct qcom_swrm_ctrl *ctrl,
+ 				     u8 dev_addr, u16 reg_addr,
+ 				     u32 len, u8 *rval)
+ {
+ 	u32 cmd_data, cmd_id, val, retry_attempt = 0;
++	u64 trace_command;
++	int trace_read_ret;
+ 
+ 	val = swrm_get_packed_reg_val(&ctrl->rcmd_id, len, dev_addr, reg_addr);
+ 
+@@ -542,18 +664,27 @@
+ 
+ 	/* wait for FIFO RD to complete to avoid overflow */
+ 	usleep_range(100, 105);
++	trace_command = axon_swr_trace_record(ctrl, 0, val, AXON_SWR_SUBMIT, 0, 0, 0);
+ 	ctrl->reg_write(ctrl, ctrl->reg_layout[SWRM_REG_CMD_FIFO_RD_CMD], val);
+ 	/* wait for FIFO RD CMD complete to avoid overflow */
+ 	usleep_range(250, 255);
+ 
+-	if (swrm_wait_for_rd_fifo_avail(ctrl))
++	if (swrm_wait_for_rd_fifo_avail(ctrl)) {
++		axon_swr_trace_record(ctrl, trace_command, val, AXON_SWR_TIMEOUT,
++				      retry_attempt, 0, 0);
+ 		return SDW_CMD_FAIL_OTHER;
++	}
+ 
+ 	do {
+-		ctrl->reg_read(ctrl, ctrl->reg_layout[SWRM_REG_CMD_FIFO_RD_FIFO_ADDR],
+-			       &cmd_data);
++		trace_read_ret = ctrl->reg_read(ctrl,
++				ctrl->reg_layout[SWRM_REG_CMD_FIFO_RD_FIFO_ADDR],
++				&cmd_data);
+ 		rval[0] = cmd_data & 0xFF;
+ 		cmd_id = FIELD_GET(SWRM_RD_FIFO_CMD_ID_MASK, cmd_data);
++		axon_swr_trace_record(ctrl, trace_command, val, AXON_SWR_RESULT,
++				      retry_attempt,
++				      trace_read_ret == SDW_CMD_OK ? cmd_id : 0,
++				      trace_read_ret);
+ 
+ 		if (cmd_id != ctrl->rcmd_id) {
+ 			if (retry_attempt < (MAX_FIFO_RD_RETRY - 1)) {
+@@ -561,6 +692,8 @@
+ 				usleep_range(500, 505);
+ 				ctrl->reg_write(ctrl, SWRM_CMD_FIFO_CMD,
+ 						SWRM_CMD_FIFO_FLUSH);
++				axon_swr_trace_record(ctrl, trace_command, val, AXON_SWR_RETRY,
++						      retry_attempt + 1, 0, 0);
+ 				ctrl->reg_write(ctrl,
+ 						ctrl->reg_layout[SWRM_REG_CMD_FIFO_RD_CMD],
+ 						val);
+@@ -725,6 +858,7 @@
+ 	ctrl->reg_read(ctrl, ctrl->reg_layout[SWRM_REG_INTERRUPT_STATUS],
+ 		       &intr_sts);
+ 	intr_sts_masked = intr_sts & ctrl->intr_mask;
++	axon_swr_trace_irq(ctrl, intr_sts, intr_sts_masked);
+ 
+ 	do {
+ 		for (i = 0; i < SWRM_INTERRUPT_MAX; i++) {
+@@ -851,6 +985,7 @@
+ 		ctrl->reg_read(ctrl, ctrl->reg_layout[SWRM_REG_INTERRUPT_STATUS],
+ 			       &intr_sts);
+ 		intr_sts_masked = intr_sts & ctrl->intr_mask;
++		axon_swr_trace_irq(ctrl, intr_sts, intr_sts_masked);
+ 	} while (intr_sts_masked);
+ 
+ 	clk_disable_unprepare(ctrl->hclk);
+@@ -1543,6 +1678,9 @@
+ 	ctrl = devm_kzalloc(dev, sizeof(*ctrl), GFP_KERNEL);
+ 	if (!ctrl)
+ 		return -ENOMEM;
++
++	spin_lock_init(&ctrl->axon_trace.lock);
++	ctrl->axon_trace.enabled = of_machine_is_compatible("zte,axon10s-pro");
+ 
+ 	data = of_device_get_match_data(dev);
+ 	ctrl->max_reg = data->max_reg;

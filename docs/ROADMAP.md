@@ -11,3 +11,8 @@
 7. **更新维护**：制定保留本机内核、GPT 和 Recovery 的更新/回滚方案。暂不宣称兼容官方整套 OTA。
 
 OptiScaler 属于后续可选增强，尚未安装或完成游戏验收，不列入基础适配已完成项。
+
+
+## Required next milestone: native low-power standby
+
+User reaffirmed on2026-10-17 that deep sleep and standby drain must be repaired. Completion requires measured standby power reduction, repeated reliable power-key wake, and display/touch/Wi-Fi/audio recovery. Screen-off simulation or CPU idle counters alone do not satisfy it. Current #56 exposes only `[s2idle]` in mem_sleep; command line retains clk_ignore_unused/pd_ignore_unused and verbose console options. These are diagnostic leads, not proof of the cause or authorization to remove them without dependency review. Preserve USB and boot/REC recovery; begin with existing suspend/wakeup evidence and read-only power-domain/residency inspection.
