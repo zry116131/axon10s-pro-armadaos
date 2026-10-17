@@ -389,3 +389,19 @@ One direct VP8 empty OUTPUT STREAMON, with zero QBUF/bitstream/ETB, returned EIO
 Next diagnostic: capture the bounded raw SYS_INIT_DONE codec capability reply before HFI6 static platform parsing. Firmware-advertised support must be distinguished from resource-load/decode success. Do not add speculative properties or bypass LOAD_RESOURCES.
 
 After #78, USB confirmed #56 during startup; SSH subsequently verified kernel7.2.6-axon10s-dsiclkfix1, system running, game-mode service active, no failed system units and only2GiB ZRAM. Steam settings readback video=false/webviews=true.
+
+
+## #79 raw firmware capability reply captured
+
+Diagnostic-only #71 decoder and #75 bounded firmware logger, adding a read-only helper immediately before unchanged SYS_INIT dispatch. Board/SM8250/HFI6/message guards, four replies per boot, independent aligned16..12288B size validation, at most64 payload words grouped eight per line. No version gate because image version may not yet have arrived. Parse only successful first property0x1009 with at least three words; unknown layouts remain unknown. No packet, codec-mask, parser, command sequence or error-handling mutation.
+
+Actual-helper15-case ASan/UBSan/Werror harness passes malformed tight allocations, guard exclusions, unknown property, partial lines, concurrent budget and packet/core immutability. Parent review, kernel compilation, package checks, exact embedded initramfs48/DT and DSI56 preservation passed. Source SHA256 `18e51e399f0f2a0e4f4698d4670a3ab0ca23c1216ad4360a86e00f95f46922c3`; image SHA256 `8f5636a488b9f549b49d7821547cfe94320fb3a0771248fa59f6781e95431bfa`, temporary kernel7.2.6-axon10s-video-syscaps1.
+
+Boot itself produced SYS_INIT reply size3192, error0, property count77, payload794 words, dump64 words (explicitly truncated). First property0x1009 reports decoder mask0x701a, encoder mask0xb002. Verified current HFI bits H2640x2, VP80x1000, VP90x4000 are all present in decoder mask. Thus VP8/VP9 are actually advertised by this firmware, not merely invented by the host static capability table. Advertisement still does not prove LOAD_RESOURCES or decoding success; #78 empty-load failure remains unresolved. Remaining properties were neither fully captured nor interpreted.
+
+No additional session/decode probe was needed. Captured boot log contains no SFR/Err_Fatal match; this is not a codec stability test. Default verbosity0x18 retained; no boot/REC writes. Public bounded raw evidence and diagnostic-only patch in experiments/79-*. Existing malformed-transport/parser validation limitations are not repaired by this logger.
+
+Focused follow-up source audit rejects a blind static-parser bypass: hfi_parser.c264..410 only populates host metadata, with no firmware command/ack/state transition. hfi_msgs.c487..513 still completes HFI6 session initialization; resource/default-property commands occur outside that parser. helpers.c538..554 chooses dynamic mode independently for HFI6. Metadata has indirect consumers (minimum geometry and output format), so mismatch is not categorically excluded, but this prefix establishes no exact VP8 discrepancy or value to substitute. No new behavior-changing trial is justified by the parser hypothesis.
+
+Normal reboot restored installed #56; USB and SSH verified kernel, system running, active game-mode service, no failed system units and only2GiB ZRAM.
+Steam readback after startup confirmed video=false/webviews=true; initial CDP connection refusal resolved when Steam finished starting.

@@ -1,0 +1,73 @@
+--- a/drivers/media/platform/qcom/venus/hfi_venus.c
++++ b/drivers/media/platform/qcom/venus/hfi_venus.c
+@@ -1135,6 +1135,62 @@
+ 	venus_sfr_print(hdev);
+ }
+ 
++/* Diagnostic only: never feed firmware words into the platform caps parser. */
++static void venus_axon_log_syscaps(struct venus_hfi_device *hdev, void *packet)
++{
++	static atomic_t reply_budget = ATOMIC_INIT(4);
++	struct venus_core *core = hdev->core;
++	struct device *dev = core->dev;
++	const struct hfi_msg_sys_init_done_pkt *pkt = packet;
++	u32 bytes, words, dump_words, i, j, count, used;
++	char line[8 * 9 + 1];
++
++	/* SYS_INIT can precede the image-version reply: do not gate on venus_ver. */
++	if (!of_machine_is_compatible("zte,axon10s-pro") ||
++	    !of_device_is_compatible(dev->of_node, "qcom,sm8250-venus") ||
++	    core->res->hfi_version != HFI_VERSION_6XX ||
++	    pkt->hdr.pkt_type != HFI_MSG_SYS_INIT)
++		return;
++
++	if (atomic_dec_if_positive(&reply_budget) < 0)
++		return;
++
++	bytes = pkt->hdr.size;
++	if (bytes < sizeof(*pkt) || bytes > sizeof(hdev->pkt_buf) ||
++	    !IS_ALIGNED(bytes, sizeof(u32))) {
++		dev_info(dev, "AXON_SYSCAPS size=%u decode=unknown reason=invalid-size\n",
++			 bytes);
++		return;
++	}
++
++	words = (bytes - sizeof(*pkt)) / sizeof(u32);
++	dump_words = min_t(u32, words, 64);
++	dev_info(dev, "AXON_SYSCAPS size=%u error=%#x properties=%u payload_words=%u dump_words=%u truncated=%u\n",
++		 bytes, pkt->error_type, pkt->num_properties, words, dump_words,
++		 words > dump_words);
++	for (i = 0; i < dump_words; i += count) {
++		count = min_t(u32, dump_words - i, 8);
++		used = 0;
++		for (j = 0; j < count; j++)
++			used += scnprintf(line + used, sizeof(line) - used,
++					  "%s%08x", j ? " " : "", pkt->data[i + j]);
++		dev_info(dev, "AXON_SYSCAPS raw[%02u..%02u]=%s\n",
++			 i, i + count - 1, line);
++	}
++
++	if (pkt->error_type != HFI_ERR_NONE) {
++		dev_info(dev, "AXON_SYSCAPS decode=unknown reason=firmware-error\n");
++	} else if (!pkt->num_properties || words < 3) {
++		dev_info(dev, "AXON_SYSCAPS decode=unknown reason=missing-first-property\n");
++	} else if (pkt->data[0] != HFI_PROPERTY_PARAM_CODEC_SUPPORTED) {
++		dev_info(dev, "AXON_SYSCAPS decode=unknown reason=unrecognized-first-property id=%#x\n",
++			 pkt->data[0]);
++	} else {
++		dev_info(dev, "AXON_SYSCAPS first=codec-supported dec=%#x enc=%#x\n",
++			 pkt->data[1], pkt->data[2]);
++	}
++}
++
+ static irqreturn_t venus_isr_thread(struct venus_core *core)
+ {
+ 	struct venus_hfi_device *hdev = to_hfi_priv(core);
+@@ -1150,6 +1206,7 @@
+ 
+ 
+ 	while (!venus_iface_msgq_read(hdev, pkt)) {
++		venus_axon_log_syscaps(hdev, pkt);
+ 		msg_ret = hfi_process_msg_packet(core, pkt);
+ 		switch (msg_ret) {
+ 		case HFI_MSG_EVENT_NOTIFY:
