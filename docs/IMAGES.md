@@ -1,44 +1,42 @@
-# Axon 10s Pro ArmadaOS · 开发预览镜像
+# Axon 10s Pro ArmadaOS · #93 开发预览镜像
 
-版本：v0.1.0-dev.20261016。仅针对 ZTE A2020 SP / P865A02（SM8250）。
+版本：**v0.2.0-dev.20261017**。仅针对 **ZTE A2020 SP / P865A02（SM8250）**。
 
-**版本提示：设备现已升级并验收 #44 USB HUB 修复，但本 Release 下载内容仍为 #43 和原专用 REC。#44 镜像尚未公开，不能从本页的 #43 下载获得 USB HUB 修复。**
+[下载 #93 开发预览](https://github.com/zry116131/axon10s-pro-armadaos/releases/tag/v0.2.0-dev.20261017)
 
-## 下载内容
+## 文件与身份
 
-| 文件 | 用途 | 验收范围 |
-| --- | --- | --- |
-| axon10s-pro-armada-boot43-c673d20f.img | Android boot v2 容器中的 #43 Linux 内核与 initramfs | 原开发设备 boot_a 安装、回读、普通重启、Steam 游戏模式及触摸已确认 |
-| axon10s-pro-armada-recovery-10078aa9.img | 专用 RAM Recovery | 原开发设备安装、USB root、按键菜单、返回 Armada 已确认；关机及长时间运行未完整验收 |
-| boot43.config / recovery.config | 两份构建的完整内核配置 | 用于研究、对照和重建 |
-| axon10s-port-source-20261016.tar.gz | 板级适配、驱动、补丁、构建入口及相关脚本的开发快照 | 包含从两份镜像提取的精确启动脚本；不是已验收的全自动重建工程 |
-| linux-7.2.6.tar.xz | Linux 基线源码 | 版本及哈希与原开发基线一致 |
-| ubuntu-runtime-sources.tar.gz | BusyBox、glibc、e2fsprogs、util-linux 对应 Ubuntu 来源包和版权文件 | 包含发行版补丁与 .dsc 校验信息 |
-| image-manifest.json / SHA256SUMS | 镜像身份和完整性清单 | 下载后核对；哈希相同不代表适合另一台设备 |
+- `axon10s-pro-armada-boot93-e116ddc5.img`：73,162,752 字节，Android boot v2 启动镜像。
+- `boot93.config`、`boot93.dtb`：该镜像对应的内核配置和 Linux 设备树。
+- 源码参考包：本次构建的源码及构建输入参考，范围见包内说明；Linux 基线与用户空间来源包仍见旧版 Release。
+- `image-manifest.json`、`SHA256SUMS`：文件身份与完整性校验。
 
-## 这些镜像不包含什么
+镜像 SHA-256：
 
-**本次没有完整 ArmadaOS rootfs、Steam 客户端/游戏或一键安装器。** boot 镜像不能独立引导到桌面，需要已适配的 ArmadaOS 根文件系统和用户空间配置。KWin 6.7.5、SDDM/Decky 服务配置等修复位于开发设备的 rootfs，不会仅凭刷入 boot 镜像自动获得。
+```text
+e116ddc5572767a06a9bbce669255f87b9d579c9448201f69d20efeea487cbf1
+```
 
-没有上传用户磁盘、账号、Wi-Fi 连接凭据、代理订阅、密钥、persist 校准分区、GPT 备份或原厂 boot_b/recovery_b。
+发布文件与已经固化的 #93 启动负载逐字节一致。开发设备完成写入、整分区回读及正常重启验证。整分区备份含尾部数据，其哈希与上述发布负载不同。
 
-镜像保留本机原厂引导容器需要的 ramdisk、硬件 DTB，以及 REC 的 recovery DTBO；initramfs 中含驱动所需的通用/原厂固件。这些是硬件与引导组件，版权和许可属于各自权利人，不因本项目发布而改用 Linux 许可证。
+## 本版变化与验证
 
-## 布局与运行条件
+- 集成显示时钟、互连带宽同步、音频状态和 DSP 请求匹配修复。
+- H.264 硬解兼容配置已启用；Steam 内 720p H.264 硬解及 VP8/VP9 软件回退通过受控测试。
+- 音视频并行、原生 s2idle 定时唤醒及恢复后音视频测试通过。
+- 清理残留诊断对象后完整重编译，检查未包含旧 SoundWire 诊断符号。
 
-- 必须先自行确认机型、原厂版本、解锁和恢复路径。仅有 9008/QPST 接口，不代表具备完整可用的恢复输入。
-- #43 只在 `/dev/sda15` 上寻找标签为 `AXON_ARMADA`、带本机板级标记的 ext4 根文件系统。
-- initramfs 允许的两种历史几何为：起点 26464576 个 512 字节扇区 / 长度 111968858112 字节，或起点 1304576 个 512 字节扇区 / 长度 124850778112 字节。后者是当前开发设备的合并布局。
-- **这些数字是运行前置检查的说明，不是给其他设备照抄的分区方案。** 本 Release 不提供 GPT 写入脚本。不要改别人的分区表来绕过检查。
-- REC 默认将内部存储设为只读，不自动挂载根文件系统；其 `recctl status/check` 还要求当前合并布局及 slot-guard。原厂分区布局下检查可能拒绝执行，不能声称是通用 Recovery。
-- 通过物理 USB 提供无登录验证的 root 调试入口，属于开发维护版本。尚未完成面向日常分发的访问控制加固。
-- 源码快照保留历史脚本；其默认输入目录需要自行准备。修改任何镜像后必须重新校验和验证，不能继承本 Release 的验收结论。
+**#93 的长期游戏稳定性、真实游戏内存不足行为、物理触摸/按键完整回归、深层休眠驻留与拔线待机功耗尚未验收。** 早期版本的电源键和触摸实机反馈不能替代 #93 验收。VP8/VP9 硬解仍未解决，部分 SoundWire 告警仍存在。
 
-## 本 Release（#43）的限制
+## 安装前提与边界
 
-保留模拟休眠。原生休眠电源键唤醒不可靠；USB HUB/OTG、外接显示器、开机白条、部分游戏兼容/性能、完整充电与音频通路仍未全部解决。#43 基础开机验收通过，长期稳定性尚未完成。
+**这是启动镜像，未包含完整 ArmadaOS rootfs 或一键安装器。** 仅刷 boot 无法获得 Steam、KWin、音频用户空间配置、2 GiB ZRAM、OOM 策略或持久化休眠设置。这些需要已经适配好的根文件系统；相关公开配置见仓库 `runtime/`，不要整体盲目执行研究脚本。
 
-本次只重新校验和发布本地已验收文件，没有对手机执行新的刷写、重启或休眠测试。公开镜像与已验收镜像字节一致。
+镜像仍依赖既有的 `AXON_ARMADA` 根分区标签、板级标记与布局检查。布局与 REC 维护条件见[旧版镜像说明](IMAGES-43.md#布局与运行条件)。这些检查对应开发设备，不能照抄分区数字用于其他手机。本次不提供 GPT 修改、自动分区迁移或通用刷写命令。
+
+保留已知可启动镜像和可用恢复路径后再进行设备适配。REC 本次未更改，原专用 REC 及其配置仍可在[旧版 Release](https://github.com/zry116131/axon10s-pro-armadaos/releases/tag/v0.1.0-dev.20261016)下载，其开发维护权限和适用范围不变。回退至不含本版 H.264 兼容配置的旧内核时，应同步关闭 Steam 硬件视频解码并重启游戏模式。
+
+本镜像包含开发用物理 USB root 调试入口，未完成日常分发的访问控制加固。固件、原厂 ramdisk 和硬件引导组件保留各自权利人的许可；Linux 和第三方来源说明见[源码说明](SOURCES.md)及源码参考包。未上传个人 rootfs、账号、Wi-Fi 凭据、GPT 备份、设备校准分区或游戏数据。
 
 ## 校验
 
@@ -46,6 +44,4 @@ Linux：`sha256sum -c SHA256SUMS`
 
 macOS：`shasum -a 256 -c SHA256SUMS`
 
-在放齐所有 Release 文件的目录中执行以上命令。完整支持矩阵、经验和更新记录见仓库文档。
-
-[前往 GitHub Release 下载](https://github.com/zry116131/axon10s-pro-armadaos/releases/tag/v0.1.0-dev.20261016)
+将本次全部附件放在同一目录执行。此次发布复用已完成的实机验收，没有额外刷写手机。测试细节见[视频记录](VIDEO-DECODE-TRIALS.md)、[音频记录](AUDIO-TRIALS.md)和[休眠记录](SUSPEND-TRIALS.md)。

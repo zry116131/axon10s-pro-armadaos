@@ -4,7 +4,7 @@
 
 **状态日期：2026-10-17。已在一台实机上运行中文 Plasma 桌面、Steam 游戏模式及部分游戏。项目仍处于设备适配阶段，尚无面向其他用户的安装发行版。**
 
-首批进度、方法和问题清单已公开；现提供 [boot #43 与专用 REC 开发预览下载](https://github.com/zry116131/axon10s-pro-armadaos/releases/tag/v0.1.0-dev.20261016)，附内核配置和源码参考包。**尚无完整 ArmadaOS rootfs 或一键安装器。** 使用前阅读 [镜像说明与前置条件](docs/IMAGES.md)，源码来源见 [来源与代码说明](docs/SOURCES.md)。本项目为非官方设备移植记录，与 ArmadaOS、ZTE 或 Valve 无隶属关系。
+首批进度、方法和问题清单已公开；现提供 [boot #93 开发预览下载](https://github.com/zry116131/axon10s-pro-armadaos/releases/tag/v0.2.0-dev.20261017)（专用 REC 沿用旧版），附内核配置和源码参考包。**尚无完整 ArmadaOS rootfs 或一键安装器。** 使用前阅读 [镜像说明与前置条件](docs/IMAGES.md)，源码来源见 [来源与代码说明](docs/SOURCES.md)。本项目为非官方设备移植记录，与 ArmadaOS、ZTE 或 Valve 无隶属关系。
 
 当前实机已安装 #93，保留 #44 USB 基础、ICC/显示修复与 2 GiB LZ4 ZRAM；当前仅 ZRAM swap 启用。音视频及安装证据见 [视频适配记录](docs/VIDEO-DECODE-TRIALS.md)，历史内存证据见 [ZRAM 验证记录](docs/ZRAM-VALIDATION.md)。#93 的物理交互与长期游戏回归仍待完成。
 
@@ -29,7 +29,7 @@
 
 **#93 正常重启的软件检查已通过；画面和触摸的用户确认来自较早节点。长期稳定性、深层驻留和待机功耗仍未验收。** 每项功能的证据层级见 [支持矩阵](docs/STATUS.md)，镜像身份见 [验证记录](docs/VALIDATION.md)。
 
-**当前维护记录已更新到 #93；本地提交尚未推送，GitHub 认证不可用。H.264 硬解、音频通路与休眠恢复已有受控证据；VPx 硬解、SoundWire 告警、实际游戏 OOM、待机耗电及长期 GPU 稳定性仍未全部解决。详见 [后续计划](docs/ROADMAP.md) 和 [运行时修复与检查](docs/RUNTIME-REPAIRS.md)。**
+**当前维护记录已更新到 #93；代码与验证记录已同步 GitHub，#93 启动镜像作为开发预览发布。H.264 硬解、音频通路与休眠恢复已有受控证据；VPx 硬解、SoundWire 告警、实际游戏 OOM、待机耗电及长期 GPU 稳定性仍未全部解决。详见 [后续计划](docs/ROADMAP.md) 和 [运行时修复与检查](docs/RUNTIME-REPAIRS.md)。**
 
 ## 分批分享计划
 
