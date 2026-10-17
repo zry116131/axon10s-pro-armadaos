@@ -154,3 +154,10 @@ Post-wake core_irq callback0 is compatible with command-mode idle, which unregis
 A separate normal boot submitted Steam sleep at monotonic29.992s. RTC woke after28.136263166s, PM success+1/fail0. DPU frame-done timeouts occurred at37.928,38.044 and67.008monotonic seconds, after suspend exit35.161. No pre-suspend wait_for or timeout-pending message was captured. Subsequent311canvas paints/6002.7ms progressed TX_DONE+361 and TE+416 across7.008s monitoring; static observation through approximately298monotonic seconds retained exactly three errors. This reproduces early recovery errors without demonstrating continuous display failure or identifying cause.
 
 Because full display recovery is not accepted, the original fake sleep policy was restored from its exclusive pre-install backup, with metadata preservation and readback verification. #84 remains installed; ICC and ZRAM changes remain in place. Further native tests use temporary overrides and RTC backup. Native-policy persistence was verified historically, but it is not the current daily policy.
+
+
+### #56 baseline comparison also reproduces display errors
+
+Validated #56 was fastboot-booted temporarily; installed #84 and REC were not overwritten. Steam sleep submitted at monotonic28.692s under a temporary native override while permanent policy remained fake. PM/RTC passed27.763518635s, but the58.042s snapshot already contained15DPU frame/kickoff/queue errors. ICC still contained41INT_MAX tokens. Thus the defect also exists with the prior kernel and its initial bandwidth floor; #84 did not uniquely introduce it. This does not identify the original fault.
+
+The paint probe drew220updates/6000.8ms with a683.4ms maximum callback interval; TX_DONE increased331 over7.133s while the TE callback count stayed488. These are intermittent progress, not full display acceptance. A bounded per-encoder event-ring diagnostic candidate is being built to distinguish kickoff, completion and timer ordering without changing their behavior.
