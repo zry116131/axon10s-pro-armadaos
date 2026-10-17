@@ -1,0 +1,60 @@
+--- a/drivers/media/platform/qcom/venus/vdec.c
++++ b/drivers/media/platform/qcom/venus/vdec.c
+@@ -117,6 +117,21 @@
+ 
+ };
+ 
++/* Explicit compatibility profile; firmware advertisement is not a safety gate. */
++static bool axon_h264_compat;
++module_param(axon_h264_compat, bool, 0400);
++MODULE_PARM_DESC(axon_h264_compat, "Limit Axon SM8250 HFI6 decoder to H264");
++
++static bool vdec_axon_h264_compat(struct venus_inst *inst)
++{
++	return axon_h264_compat &&
++		of_machine_is_compatible("zte,axon10s-pro") &&
++		of_device_is_compatible(inst->core->dev->of_node,
++					"qcom,sm8250-venus") &&
++		inst->session_type == VIDC_SESSION_TYPE_DEC &&
++		inst->core->res->hfi_version == HFI_VERSION_6XX;
++}
++
+ static const struct venus_format *
+ find_format(struct venus_inst *inst, u32 pixfmt, u32 type)
+ {
+@@ -133,6 +148,10 @@
+ 		return NULL;
+ 
+ 	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
++	    vdec_axon_h264_compat(inst) && pixfmt != V4L2_PIX_FMT_H264)
++		return NULL;
++
++	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
+ 	    !venus_helper_check_codec(inst, fmt[i].pixfmt))
+ 		return NULL;
+ 
+@@ -161,6 +180,11 @@
+ 		bool valid = false;
+ 
+ 		if (fmt[i].type != type)
++			continue;
++
++		if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
++		    vdec_axon_h264_compat(inst) &&
++		    fmt[i].pixfmt != V4L2_PIX_FMT_H264)
+ 			continue;
+ 
+ 		if (V4L2_TYPE_IS_OUTPUT(type)) {
+@@ -331,6 +355,12 @@
+ 	struct v4l2_format format;
+ 	u32 pixfmt_out = 0, pixfmt_cap = 0;
+ 	struct vb2_queue *q;
++
++	/* Reject the original compressed fourcc before TRY_FMT can substitute H264. */
++	if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
++	    vdec_axon_h264_compat(inst) &&
++	    pixmp->pixelformat != V4L2_PIX_FMT_H264)
++		return -EINVAL;
+ 
+ 	q = v4l2_m2m_get_vq(inst->m2m_ctx, f->type);
+ 
