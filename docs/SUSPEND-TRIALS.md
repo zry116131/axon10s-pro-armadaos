@@ -210,3 +210,19 @@ The matched quiet repetition submitted46.425s versus control46.089s, and passed2
 These controls support reducing verbose synchronous console output as a mitigation, while not identifying every hardware/IRQ cause. Candidate87 therefore contains no DPU diagnostic overlays or driver changes relative84. Its only configuration changes are release and forcedCMDLINE: remove ignore_loglevel and change loglevel8→4. DT/initramfs, including embedded bytes, match84; originalDPU source hashes and absence of diagnostic symbols/strings were verified independently. Final build has zero warnings; an earlier make clock-skew warning is retained separately. PayloadSHA2567ddd9a03b08b1da29a4d446de47069798e32b173c0e6ea4c213f930830ec8139. At this checkpoint it is built but not yet booted or installed.
 
 Predeployment review caught an accidental model-string digit replacement in the87 trial harness; it was corrected before deployment and a literalP865A02 assertion was added. Kernel/board guards remain strict. The non-diagnostic candidate still requires real boot/suspend/display regressions before installation or re-enabling permanent native sleep.
+
+
+### #87 temporary boot: first native cycle passes
+
+Non-diagnostic87 boot36392618-bd81-49e1-aa29-2616efd82faa submittedSteam sleep45.905s and passed27.883168583s. By102.849s only PM entry/exit appeared in the specified DPU error filter. Console readback isN/4 4 1 7 without a temporary filtering service; permanent sleep policy remainsfake. Across452samples the activeworker accumulated22.775505ms runtime and3.279376ms schedulerwait, with no sampled interval exceeding1ms wait increment. This is one functional cycle, not long-term or physical-panel acceptance.
+
+A180s trial was then submitted with explicit InvocationIDf9349ad45dce48eea18a008e44dc52a4. Repeated-unit collection now selects that exact invocation and refuses to reuse an earlier completed result if the requested one is missing or incomplete. Full84 rollback backup creation and any87installation remain deferred until runtime acceptance.
+
+
+### #87 installed and normally booted
+
+The180s temporary trial passed177.429108370s, with no specified DPU errors through subsequent paint/burst checks. Paint298draws/6004ms advancedTX+299; burst97draws/6003ms had31of64snapshots withTXcallback0. Both cleaned up; USB root shell returned the same87boot identity. Health checks found active independent game mode, taint0, no failed units, no game processes, permanentfake policy and only2GiBZRAM/swappiness40.
+
+A full96MiB #84 backup was exclusively created on the phone, read back and copied to the maintenance Mac with SHA256a0721acb9dddadf437857e450f9223bb34a8df0ca502055c2affb6817f650190. The87 installer passed read-only preflight and ran detached from SSH. Fullboot_a readback SHA2563e26d3b20c4f7562e2d88a8ea56708d9495da21cc9a1590442e7b3bed4172526, REC37 and all24GPTregions unchanged, bootdiskRO restored, transactionwrite-verified. No sleep-policy change occurred.
+
+A normal reboot without fastboot boot returned87 in bootbcab4066-5628-45ed-b87b-08edc0f6193c. At18.377s game mode wasactive, consoleN/4 4 1 7, taint0, no failed units, bootdiskRO1, permanentfake and onlyZRAM. This confirms installed startup. A separate installed-kernel native trial is in progress before any permanent policy enablement.
