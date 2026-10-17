@@ -174,3 +174,14 @@ The ring shows two earlier completed frames, then the idle callback (event detai
 Five later software event-queue overflows were observed. Source inspection identifies a possible secondary accounting problem: an event dropped when the four-slot pool is full does not decrement frame_pending, while pending>1 suppresses idle scheduling. Late DONE after a timeout may also affect accounting, so five overflow messages cannot be equated to five leaked frames. A later bounded canvas probe completed318draws/6002ms with TX_DONE+319 over7.010s; the event workers were sleeping when inspected. These results establish later progress, not reliable recovery or a physical panel pass. A burst probe failed in its own JavaScript before completing; its failed result is retained and excluded from driver conclusions.
 
 The next diagnostic adds resource/IRQ/TE call boundaries and pending counts to distinguish the initial failure from secondary idle inhibition. It remains a diagnostic, with no claimed fix or standby-energy result.
+
+
+### #86 confirms pending-based idle inhibition, with overflow preceding timeout
+
+Temporary diagnostic86 (payload bca62d0094009a010078ffab482d12164f5abb90cc6ed291d20bbf12894e8f39) extends the ring to32records and adds resource/IRQ/post-kickoff call boundaries. Exact84DT/initramfs/clock overlay remain preserved; build has no warnings. Independent source review found no intentional control-flow change, but timing perturbation remains.
+
+Steam RTC trial at page readiness35.937s passed28.751135197s. PM exit was41.860monotonic seconds. DONE-event overflows occurred at43.664/44.118/56.253s with pending5/6/7, preceding the first encoder timeout at60.481s. Thus overflow can occur without a preceding encoder timeout. At the first timeout the ring shows several completed frames, each IDLE_SKIP_PENDING=4, then a new kickoff and TE callback return, with no DONE before the watchdog. No resource-off transition is present in that finite window. This confirms software pending counts inhibit idle scheduling; it does not establish the initial reason for queue exhaustion or missing completion.
+
+The first ring's ARM_POST→TIMEOUT_ENTER interval is86.125ms. DONE eventually arrives after137.203ms. Later dump printing visibly adds latency, so later errors cannot be treated as undisturbed repetitions. The observed TE callback has no hardware status return. A subsequent canvas probe drew286times/6002ms with TX_DONE+338 over7.008s and cleaned up; physical scanout remains unverified.
+
+Actual core_perf/enable_bw_release reads0, excluding the worker's optional ICC bandwidth-release wait as the explanation in this run. A bounded worker scheduling/stack capture is prepared for a fresh boot to examine the first overflow. Permanent policy remains fake;86 is not installed.
