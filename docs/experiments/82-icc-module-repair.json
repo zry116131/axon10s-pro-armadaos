@@ -1,0 +1,22 @@
+{
+  "kernel": "7.2.6-axon10s-sleeptrace1 #82",
+  "module_bundle_sha256": "f8d32dcacc6689523248f8e1ebfc680637276eddae9c4106aec601c86a0c5c60",
+  "bwmon_devices_bound": [
+    "9091000.pmu",
+    "90b6400.pmu"
+  ],
+  "qcrypto_device_bound": "1dfa000.crypto",
+  "icc_providers_total": 12,
+  "icc_providers_synced_after": 12,
+  "int_max_tokens_after": 0,
+  "rtc_trial_cycle": "a073e80154534f59b9234301704564cf",
+  "suspended_seconds": 28.615,
+  "successful_callbacks": 2187,
+  "callback_errors": 0,
+  "suspend_success_delta": 1,
+  "suspend_fail_delta": 0,
+  "firmware_residency_available": false,
+  "battery_power_measured": false,
+  "persistent_module_install": false,
+  "kernel_crypto_known_answer_test": "not yet run; proc selftest field insufficient because CONFIG_CRYPTO_SELFTESTS=n"
+}

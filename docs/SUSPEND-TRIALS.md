@@ -88,3 +88,12 @@ Repeat cycle ad4d5fb0fbc64e67a29fe8876ceeb10c woke from RTC128 after28.331second
 Read-only live summary shows INT_MAX initial aggregate votes despite much smaller consumer requests. Twelve ICC providers are bound;163d000,1700000,9100000.interconnect have state_synced=0. Their available (not active) consumer links point to unbound1dfa000.crypto,9091000.pmu,90b6400.pmu. Exact82 config has CRYPTO_DEV_QCE=m and QCOM_ICC_BWMON=m, but installed module tree only names the older7.2.6-axon10s release.
 
 Generic ICC core retains init_avg/init_peak until all providers sync. QCOM RPMh aggregation applies this initial floor to AMC/WAKE/SLEEP buckets. This establishes an unresolved software vote, not measured hardware frequency or power. Preferred next candidate supplies matching existing drivers without disabling DT capabilities or forcing state_synced. QCE itself has a fixed393600kB/s probe request across buckets, so removing the INT_MAX floor will not prove optimal sleep power.
+
+
+## #82 matching-module repair verified at runtime
+
+Matching82 icc-bwmon bound9091000/90b6400.pmu and released9100000.interconnect synchronization. Matching82 qcrypto then bound1dfa000.crypto, releasing163d000/1700000; all12providers state_synced=1. Full live summary contains zero INT_MAX tokens after the repair. No forced sync_state, DT disable, persistent module installation, or boot write occurred. DES/XTS fallback modules supplied as built for the same kernel.
+
+Cycle a073e80154534f59b9234301704564cf after these loads suspended28.615s and woke fromRTC128; success+1/fail+0,2187successful callback pairs, no unmatched starts/trace loss. This validates one native-sleep cycle with the repaired votes, not measured battery-power improvement. QCE's proc-crypto selftest field says passed, but CONFIG_CRYPTO_SELFTESTS is disabled; no hardware-vector claim is made from that field.
+
+Optional APSS-only external observer used qcom_smem_get(ANY,631), no stats-SRAM/QMP/DDR probe. It returned unavailable errno=-22 both before and after an additional successful suspend. Observer was unloaded cleanly; out-of-tree taint remains for that temporary boot. Firmware residency remains unavailable.
