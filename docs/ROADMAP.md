@@ -1,6 +1,6 @@
 # 后续计划
 
-2026-10-17 已恢复主动适配。设备持有者授权无人值守推进；当前已安装稳定版本为 #56，后续候选先临时启动验证，并保留原 boot/REC 回滚路径。
+2026-10-17 已恢复主动适配。设备持有者授权无人值守推进；当前已安装稳定版本为 #87，后续候选先临时启动验证，并保留原 boot/REC 回滚路径。
 
 1. **版本收尾**：已完成 #43 游戏模式/触摸和 #44 无供电 HUB/键鼠固化、正常启动软件检查与实机确认；继续观察长期稳定性，新增变更仍需恢复路径回归。
 2. **休眠**：修正触屏与父 I2C 的电源管理顺序，验证电源键唤醒，再测 Wi-Fi、蓝牙、音频及待机功耗。
@@ -37,3 +37,10 @@ Display recovery remains open: early-boot native sleep produced DPU frame timeou
 #87 retains84ICC/DSI/ZRAM/DT/initramfs and removes forced verbose serial logging from production CMDLINE (loglevel4; noignore_loglevel). Matched46s controls reproduced DPU errors with verbose output and completed without specified errors with temporary console filtering. Non-diagnostic87 passed short and177.4s native suspend, later drawing/idle transition and USB checks; boot_a installation had full readback, unchangedREC/GPT and restoredRO, and ordinary reboot succeeded. An additional installed87shortnative trial passed. The original84fullpartition backup is independently stored onphone/Mac.
 
 Permanent native sleep has been enabled atomically with a separate original-policy backup; its installed-policy27.7s cycle and reboot-persistence checks passed, as recorded inSUSPEND-TRIALS.md. This is a functional reliability improvement, not measured deep-power acceptance. Isolated standby power, firmware residency,87physicaltouch/key acceptance and gameGPU regression remain open. Hardwarevideo remains globallyoff pendingVPxfirmware compatibility; no unsupported hardware capability is claimed fixed.
+
+
+### 当前验收缺口与已交付候选
+
+#87 完成了真实游戏启动/Steam退出、界面返回和128MiB自身映射ZRAM读回验证；这些检查不覆盖游戏实际OOM及长期游戏帧时间。已部署的[OOM会话策略](../runtime/game-mode-oom/README.md)现已收进项目，实时读回continue。该服务未委派且包含UI等20个直接进程，不可通过降低整个组的内存上限测试游戏OOM。
+
+#90仅临时启动，音频测试及两轮RTC休眠已记录；[Q6AFE事务补丁](../runtime/kernel-patches/AUDIO-VOTE-MATCHING.md)可复现该源码。SoundWire告警、ADC/主观音质、DSP重置/回调退出边界仍未完成。机器已返回#87。VPx固件LOAD失败仍缺同固件原厂成功时序；待机功耗/深层驻留仍缺可用测量证据。上述项目保持未验收，不以现有局部通过替代。
