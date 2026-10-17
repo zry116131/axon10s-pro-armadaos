@@ -1,0 +1,21 @@
+{
+  "cycle": "ec0c35687e2d421b9ff1680b00a30b55",
+  "kernel": "7.2.6-axon10s-sleeptrace1 #82",
+  "runner_mode": "rtc backup alarm",
+  "actual_wake_source": "pm8941_pwrkey",
+  "wake_irq": 129,
+  "suspended_seconds": 7.076129214,
+  "success_delta": 1,
+  "failure_delta": 0,
+  "trace_records": 9521,
+  "completed_callbacks": 2187,
+  "callback_errors": 0,
+  "unmatched_callbacks": 0,
+  "trace_loss": false,
+  "runner_errors": [],
+  "physical_display": "user confirmed immediate screen-on after short power press",
+  "cleanup_live_readback": "pm_test none; alarm empty; trace instance and temporary policy absent",
+  "soc_residency_validated": false,
+  "battery_power_validated": false,
+  "permanent_sleep_policy": "fake unchanged"
+}

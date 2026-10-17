@@ -1,0 +1,35 @@
+{
+  "kernel": {
+    "release": "7.2.6-axon10s-sleeptrace1",
+    "version": "#82 SMP PREEMPT Sat Oct 17 06:17:10 UTC 2026"
+  },
+  "cycle": "e0a1756551fa4c3a8fb6c60ce2a895f8",
+  "scope": "device suspend/resume callbacks only",
+  "outcome": "dispatcher-returned",
+  "runner_errors": [],
+  "soc_residency_validated": false,
+  "dispatch_seconds": 8.578402996063232,
+  "trace_status": "captured",
+  "trace_truncated": false,
+  "event_errors": {},
+  "cpu_stats": {
+    "cpu7": "entries: 589\noverrun: 0\ncommit overrun: 0\nbytes: 69340\noldest event ts:    65.660121\nnow ts:    74.369572\ndropped events: 0\nread events: 0",
+    "cpu6": "entries: 136\noverrun: 0\ncommit overrun: 0\nbytes: 7320\noldest event ts:    65.675525\nnow ts:    74.369652\ndropped events: 0\nread events: 0",
+    "cpu5": "entries: 345\noverrun: 0\ncommit overrun: 0\nbytes: 18200\noldest event ts:    65.532879\nnow ts:    74.369713\ndropped events: 0\nread events: 0",
+    "cpu4": "entries: 2699\noverrun: 0\ncommit overrun: 0\nbytes: 349536\noldest event ts:    65.536460\nnow ts:    74.369771\ndropped events: 0\nread events: 0",
+    "cpu3": "entries: 451\noverrun: 0\ncommit overrun: 0\nbytes: 37296\noldest event ts:    65.536894\nnow ts:    74.369823\ndropped events: 0\nread events: 0",
+    "cpu2": "entries: 6878\noverrun: 0\ncommit overrun: 0\nbytes: 403216\noldest event ts:    65.565765\nnow ts:    74.369871\ndropped events: 0\nread events: 0",
+    "cpu1": "entries: 1169\noverrun: 0\ncommit overrun: 0\nbytes: 64328\noldest event ts:    65.599184\nnow ts:    74.369918\ndropped events: 0\nread events: 0",
+    "cpu0": "entries: 3593\noverrun: 0\ncommit overrun: 0\nbytes: 411780\noldest event ts:    65.533642\nnow ts:    74.369964\ndropped events: 0\nread events: 0"
+  },
+  "power_callbacks_completed": 2134,
+  "power_callback_errors": 0,
+  "unmatched_starts": 0,
+  "timekeeping_suspended_seconds": 0,
+  "cleanup_live_verified": {
+    "pm_test": "none",
+    "wakealarm_empty": true,
+    "trace_instance_absent": true,
+    "temporary_policy_absent": true
+  }
+}

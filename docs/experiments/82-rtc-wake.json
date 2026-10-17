@@ -1,0 +1,38 @@
+{
+  "cycle": "edc6b4d68e924528983b8aaf6138de58",
+  "kernel": {
+    "release": "7.2.6-axon10s-sleeptrace1",
+    "version": "#82 SMP PREEMPT Sat Oct 17 06:17:10 UTC 2026"
+  },
+  "scope": "operational suspend and RTC wake diagnosis only",
+  "runner_errors": [],
+  "dispatch_seconds": 33.93773889541626,
+  "timekeeping_suspended_seconds": 28.613,
+  "suspend_success_delta": 1,
+  "suspend_failure_delta": 0,
+  "wake_irq": 128,
+  "wake_irq_name": "pm8xxx_rtc_alarm",
+  "completed_pm_callbacks": 2190,
+  "callback_errors": 0,
+  "unmatched_starts": 0,
+  "trace_status": "captured",
+  "trace_truncated": false,
+  "event_errors": {},
+  "cpu_trace_stats": {
+    "cpu7": "entries: 1594\noverrun: 0\ncommit overrun: 0\nbytes: 116056\noldest event ts:   240.028071\nnow ts:   274.047995\ndropped events: 0\nread events: 0",
+    "cpu6": "entries: 2\noverrun: 0\ncommit overrun: 0\nbytes: 104\noldest event ts:   273.734008\nnow ts:   274.048051\ndropped events: 0\nread events: 0",
+    "cpu5": "entries: 100\noverrun: 0\ncommit overrun: 0\nbytes: 10096\noldest event ts:   241.718092\nnow ts:   274.048093\ndropped events: 0\nread events: 0",
+    "cpu4": "entries: 1268\noverrun: 0\ncommit overrun: 0\nbytes: 143064\noldest event ts:   239.872830\nnow ts:   274.048129\ndropped events: 0\nread events: 0",
+    "cpu3": "entries: 160\noverrun: 0\ncommit overrun: 0\nbytes: 15888\noldest event ts:   240.762192\nnow ts:   274.048164\ndropped events: 0\nread events: 0",
+    "cpu2": "entries: 48\noverrun: 0\ncommit overrun: 0\nbytes: 2268\noldest event ts:   240.765111\nnow ts:   274.048200\ndropped events: 0\nread events: 0",
+    "cpu1": "entries: 4219\noverrun: 0\ncommit overrun: 0\nbytes: 237200\noldest event ts:   239.861164\nnow ts:   274.048233\ndropped events: 0\nread events: 0",
+    "cpu0": "entries: 2195\noverrun: 0\ncommit overrun: 0\nbytes: 193712\noldest event ts:   239.864048\nnow ts:   274.048266\ndropped events: 0\nread events: 0"
+  },
+  "cpu_s2idle_usage_delta_each": 1,
+  "cluster_s2idle_delta": 1,
+  "soc_residency_validated": false,
+  "battery_power_validated": false,
+  "physical_display_touch": "user confirmed normal after RTC wake",
+  "permanent_sleep_policy": "fake unchanged",
+  "independent_raw_review": "pass: 9586 records, 2190 successful paired callbacks, no trace loss"
+}

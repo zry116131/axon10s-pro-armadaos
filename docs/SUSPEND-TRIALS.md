@@ -57,3 +57,34 @@ This successful boot shows minimal event tracing can run on this device and make
 The local guarded81 runner was reviewed before deployment: raised child per-file limit4MiB→64MiB because collector's8MB raw trace can expand to48MB JSON; actual subprocess export test passes. Alarm ownership intent/partial-write cleanup and foreign-alarm preservation are mock-tested. Runner remains local-only and requires81+firmware stats; it was not weakened or executed on82.
 
 After82 normal reboot, SSH confirms installed56, system running, active game mode, no failed units, only2GiB ZRAM. No boot/REC writes or persistent sleep-policy changes.
+
+
+## #82 devices checkpoint completed
+
+Separate exact82 devices-only runner rejects RTC mode, always selects pm_test=devices, and explicitly does not validate SoC residency. Original81 runner retained. All original guards and cleanup retained; no firmware-stat requirement for this software callback checkpoint. Mock failure cleanup/mode rejection tests and parent review passed. Temporary collector/runner copies under/run verified bySHA; a detached systemd service ran exactly once.
+
+Cyclee0a1756551fa4c3a8fb6c60ce2a895f8: dispatcher returned in8.58s, no runner errors. Trace captured24selectedevents, no truncation/eventerrors or per-CPU overrun/dropped events.2134 completed PM callbacks,0errors,0unmatched starts. Kernel success+1/fail+0 but timekeeping suspended0s, expected for checkpoint; not actual deep-sleep success. Before/after snapshots complete. No new system failed units. Live readback pm_test=none, empty RTC alarm, trace instance absent and temporary sleep.conf absent. Permanent fake-suspend policy unchanged. Summary in experiments/82-devices-checkpoint.json.
+
+Next controlled diagnostic is RTC-woken actual s2idle with callback tracing, while explicitly retaining firmware-residency and battery-power validation as incomplete. Successful devices checkpoint does not test all late/noirq entry/wake paths.
+
+
+## #82 actual RTC wake returned
+
+Separate RTC-only82 runner retains exact kernel/board/collector guards, permits onlyrtc with pm_test=none, arms+30s and performs owned cleanup. Scope explicitly operational suspend/wake; missing firmware residency remains outstanding. Syntax/mock tests, source review and remote hash62692800e96ffb37fe88d3542ffb2eda698893be36d4a10da3070bdaef183926 verified before detached execution.
+
+Cycleedc6b4d68e924528983b8aaf6138de58: dispatcher returned in33.94s, timekeeping suspended28.613s, kernel suspend success+1/failure+0, last wakeIRQ128 pm8xxx_rtc_alarm.2190 completed callbacks,0errors,0unmatched; trace captured without truncation/eventerrors/buffer loss. CPU0..7 deeper state's s2idle usage each0→1; clusterS2idle0→1. These are software accounting, not firmware residency. UFS reports sleep device power/HIBERN8 link before entry. System running/no failed units; pm_test restorednone, alarmempty, temporarytrace/policyabsent. No persistent policy change; stillfake.
+
+USB/charging connected, Bluetooth off, no gameplay/audio workload. This is one timed wake, not battery-power or repeated power-key wake validation. User confirmed display and touch normal after resume. Independent raw audit accounted for all9586 trace records and2190callback pairs with no loss or failed system-suspend callbacks; BOOTTIME minus MONOTONIC independently gives28.612622seconds suspended. Summary in experiments/82-rtc-wake.json.
+
+
+## #82 power-key wake and repeat RTC wake
+
+Cycle ec0c35687e2d421b9ff1680b00a30b55 retained the30-second backup alarm but woke from IRQ129 pm8941_pwrkey after7.076129seconds. Power-key IRQ0→2, RTC IRQ unchanged; success+1/fail+0. Independent review paired2187 successful callbacks and accounted for9521trace records with no loss or unmatched events. User confirmed immediate screen-on after a short power press. Runner errors empty; live readback confirmed pm_test none, alarm empty, no temporary trace/config. The runner mode rtc describes the backup mechanism, not this trial's actual wake source.
+
+Repeat cycle ad4d5fb0fbc64e67a29fe8876ceeb10c woke from RTC128 after28.331seconds; success+1/fail+0,2187callbacks without errors/unmatched starts, no trace loss. SSH recovered and USB independently confirmed running82. No firmware residency or battery-power result yet; USB charging remains connected.
+
+## Interconnect initialization floor identified
+
+Read-only live summary shows INT_MAX initial aggregate votes despite much smaller consumer requests. Twelve ICC providers are bound;163d000,1700000,9100000.interconnect have state_synced=0. Their available (not active) consumer links point to unbound1dfa000.crypto,9091000.pmu,90b6400.pmu. Exact82 config has CRYPTO_DEV_QCE=m and QCOM_ICC_BWMON=m, but installed module tree only names the older7.2.6-axon10s release.
+
+Generic ICC core retains init_avg/init_peak until all providers sync. QCOM RPMh aggregation applies this initial floor to AMC/WAKE/SLEEP buckets. This establishes an unresolved software vote, not measured hardware frequency or power. Preferred next candidate supplies matching existing drivers without disabling DT capabilities or forcing state_synced. QCE itself has a fixed393600kB/s probe request across buckets, so removing the INT_MAX floor will not prove optimal sleep power.
