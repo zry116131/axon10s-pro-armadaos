@@ -1,0 +1,201 @@
+--- a/sound/soc/qcom/qdsp6/q6afe.c
++++ b/sound/soc/qcom/qdsp6/q6afe.c
+@@ -4,6 +4,8 @@
+ 
+ #include <dt-bindings/sound/qcom,q6afe.h>
+ #include <linux/slab.h>
++#include <linux/atomic.h>
++#include <linux/limits.h>
+ #include <linux/kernel.h>
+ #include <linux/uaccess.h>
+ #include <linux/wait.h>
+@@ -379,6 +381,15 @@
+ 	struct q6core_svc_api_info ainfo;
+ 	struct mutex lock;
+ 	struct aprv2_ibasic_rsp_result_t result;
++	/* Vote replies are independent of ordinary AFE clock/port results.
++	 * Poison is sticky for this instance: reprobe is not a proven DSP drain.
++	 */
++	spinlock_t vote_lock;
++	wait_queue_head_t vote_wait;
++	bool vote_pending;
++	u32 vote_token;
++	bool vote_done;
++	bool vote_poisoned;
+ 	u32 vote_result;
+ 	wait_queue_head_t wait;
+ 	struct list_head port_list;
+@@ -963,6 +974,113 @@
+ 	return ret;
+ }
+ 
++/* Unique vote tokens are never reused within this built-in driver lifetime. */
++static atomic_t vote_last_token = ATOMIC_INIT(0xffff);
++
++static int q6afe_alloc_vote_token(u32 *token)
++{
++	int last = atomic_read(&vote_last_token);
++
++	for (;;) {
++		int previous;
++
++		if (last == INT_MAX)
++			return -EOVERFLOW;
++		previous = atomic_cmpxchg(&vote_last_token, last, last + 1);
++		if (previous == last) {
++			*token = last + 1;
++			return 0;
++		}
++		last = previous;
++	}
++}
++
++/* Caller holds afe->lock across this transaction; callbacks only take
++ * vote_lock, never afe->lock. No caller output pointer is retained.
++ */
++static bool q6afe_vote_done(struct q6afe *afe)
++{
++	unsigned long flags;
++	bool done;
++
++	spin_lock_irqsave(&afe->vote_lock, flags);
++	done = afe->vote_done;
++	spin_unlock_irqrestore(&afe->vote_lock, flags);
++	return done;
++}
++
++static void q6afe_vote_reply(struct q6afe *afe, u32 token, u32 handle)
++{
++	unsigned long flags;
++	bool accepted = false;
++
++	spin_lock_irqsave(&afe->vote_lock, flags);
++	if (afe->vote_pending && !afe->vote_poisoned &&
++	    token == afe->vote_token) {
++		afe->vote_result = handle;
++		afe->vote_pending = false;
++		afe->vote_done = true;
++		accepted = true;
++	}
++	spin_unlock_irqrestore(&afe->vote_lock, flags);
++	if (accepted)
++		wake_up(&afe->vote_wait);
++}
++
++static int q6afe_send_vote_locked(struct q6afe *afe, struct apr_pkt *pkt,
++				 u32 *client_handle)
++{
++	unsigned long flags;
++	int ret;
++
++	spin_lock_irqsave(&afe->vote_lock, flags);
++	if (afe->vote_poisoned) {
++		spin_unlock_irqrestore(&afe->vote_lock, flags);
++		return -EIO;
++	}
++	{
++		u32 token;
++
++		ret = q6afe_alloc_vote_token(&token);
++		if (ret) {
++			spin_unlock_irqrestore(&afe->vote_lock, flags);
++			return ret;
++		}
++		pkt->hdr.token = token;
++	}
++	afe->vote_token = pkt->hdr.token;
++	afe->vote_done = false;
++	afe->vote_pending = true;
++	spin_unlock_irqrestore(&afe->vote_lock, flags);
++
++	ret = apr_send_pkt(afe->apr, pkt);
++	if (ret < 0) {
++		/* A failed send is conservatively treated as uncertain delivery. */
++		ret = -EINVAL;
++		goto poison;
++	}
++	ret = wait_event_timeout(afe->vote_wait, q6afe_vote_done(afe),
++				 msecs_to_jiffies(TIMEOUT_MS));
++	if (!ret) {
++		ret = -ETIMEDOUT;
++		goto poison;
++	}
++
++	spin_lock_irqsave(&afe->vote_lock, flags);
++	*client_handle = afe->vote_result;
++	afe->vote_done = false;
++	spin_unlock_irqrestore(&afe->vote_lock, flags);
++	return 0;
++
++poison:
++	spin_lock_irqsave(&afe->vote_lock, flags);
++	afe->vote_pending = false;
++	afe->vote_done = false;
++	afe->vote_poisoned = true;
++	spin_unlock_irqrestore(&afe->vote_lock, flags);
++	return ret;
++}
++
+ static int q6afe_callback(struct apr_device *adev, const struct apr_resp_pkt *data)
+ {
+ 	struct q6afe *afe = dev_get_drvdata(&adev->dev);
+@@ -1003,14 +1121,15 @@
+ 		}
+ 	}
+ 		break;
+-	case AFE_CMD_RSP_REMOTE_LPASS_CORE_HW_VOTE_REQUEST:
+-		if (data->payload_size < sizeof(afe->vote_result))
++	case AFE_CMD_RSP_REMOTE_LPASS_CORE_HW_VOTE_REQUEST: {
++		u32 handle;
++
++		if (data->payload_size < sizeof(handle))
+ 			return -EINVAL;
+-		memcpy(&afe->vote_result, data->payload, sizeof(afe->vote_result));
+-		afe->result.status = 0;
+-		afe->result.opcode = hdr->opcode;
+-		wake_up(&afe->wait);
+-		break;
++		memcpy(&handle, data->payload, sizeof(handle));
++		q6afe_vote_reply(afe, hdr->token, handle);
++		break;
++	}
+ 	default:
+ 		break;
+ 	}
+@@ -1043,6 +1162,18 @@
+ 	int ret;
+ 
+ 	mutex_lock(&afe->lock);
++	if (rsp_opcode == AFE_CMD_RSP_REMOTE_LPASS_CORE_HW_VOTE_REQUEST) {
++		if (!client_handle || port) {
++			ret = -EINVAL;
++			goto err;
++		}
++		ret = q6afe_send_vote_locked(afe, pkt, client_handle);
++		goto err;
++	}
++	if (client_handle) {
++		ret = -EINVAL;
++		goto err;
++	}
+ 	if (port) {
+ 		wait = &port->wait;
+ 		result = &port->result;
+@@ -1071,8 +1202,6 @@
+ 		ret = -EINVAL;
+ 	} else {
+ 		ret = 0;
+-		if (client_handle)
+-			*client_handle = afe->vote_result;
+ 	}
+ 
+ err:
+@@ -1927,6 +2056,8 @@
+ 	afe->apr = adev;
+ 	mutex_init(&afe->lock);
+ 	init_waitqueue_head(&afe->wait);
++	spin_lock_init(&afe->vote_lock);
++	init_waitqueue_head(&afe->vote_wait);
+ 	afe->dev = dev;
+ 	INIT_LIST_HEAD(&afe->port_list);
+ 	spin_lock_init(&afe->port_list_lock);

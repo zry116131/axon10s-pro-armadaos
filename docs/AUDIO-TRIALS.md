@@ -142,3 +142,12 @@ Known-tone PipeWire capture/play both exit0;4.98s/478080 interleaved s16 samples
 User additionally requires real deep-sleep/standby power repair. Prioritize native suspend/wake after this diagnostic rollback; simulated screen-off sleep does not satisfy that requirement. Validate actual idle power and reliable wake plus display/touch/network/audio recovery before completion.
 
 After #80, USB/SSH confirmed installed #56, system running, active Steam game mode, no failed system units and only2GiB ZRAM. No boot/REC writes.
+
+
+## #89–#90：独立 vote 事务及实机回归
+
+#89 临时启动中，既有两次 vote 请求的响应分别原样返回新 token65536、65537，支持本机固件使用独立事务标识。#90 去掉观察开关，保留全局不回绕 token、独立响应状态和等待队列、严格 pending-token 匹配及不确定失败后的实例隔离。#65 的0004补丁仍是历史基础，其迟到响应边界由[0008候选及应用说明](../runtime/kernel-patches/AUDIO-VOTE-MATCHING.md)处理；#90仅临时启动，尚未安装。
+
+两轮 Steam 入口原生休眠分别暂停27.946秒、28.022秒，后者在音频使用后进行；RTC唤醒、USB/SSH和游戏模式恢复，PM失败计数0。降低测试刺激后，4.94秒播放/采集进程均正常退出，在已分析0–4.5秒窗口内先后检测到700/1100Hz，两路统计相对各自基线增强31.85–35.60dB，最大幅度4352，窗口内无端点削波。未证明两个物理麦克风、模拟ADC无削波或主观音质。
+
+测试器仍因清理错误返回1；独立核对完成音量恢复、音频删除和恢复元数据清除，保留“测试器未整体通过”的记录。SoundWire bit9告警再次出现，尚未修复。最新下游源码对比也不能支持盲改clear/mask顺序。详细镜像、源码散列和证据边界见[RUNTIME-REPAIRS.md](RUNTIME-REPAIRS.md)。测试后已回到安装版#87，原生s2idle、2GiB ZRAM和独立游戏模式正常。
