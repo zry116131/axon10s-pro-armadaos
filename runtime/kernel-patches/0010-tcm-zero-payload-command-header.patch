@@ -1,0 +1,40 @@
+--- a/drivers/input/touchscreen/synaptics_tcm_oncell.c
++++ b/drivers/input/touchscreen/synaptics_tcm_oncell.c
+@@ -166,11 +166,11 @@
+ 
+ static int tcm_command(struct tcm_data *tcm, u8 cmd, int arg, void *buf, size_t length)
+ {
+-    u8 packet[4] = {cmd, 1, 0, arg};
+-    int ret, n = arg < 0 ? 1 : 4;
++    u8 packet[4] = {cmd, arg < 0 ? 0 : 1, 0, arg};
++    int ret, n = arg < 0 ? 3 : 4;
+     mutex_lock(&tcm->command_lock);
+     reinit_completion(&tcm->response);
+-    WRITE_ONCE(tcm->expected, cmd == TCM_IDENTIFY || cmd == TCM_RUN_APPLICATION_FIRMWARE ? REPORT_IDENTIFY : REPORT_OK);
++    WRITE_ONCE(tcm->expected, cmd == TCM_RUN_APPLICATION_FIRMWARE ? REPORT_IDENTIFY : REPORT_OK);
+     ret=i2c_master_send(tcm->client, packet, n);
+     if(ret!=n) { ret=ret<0?ret:-EIO; goto out; }
+     if(!wait_for_completion_timeout(&tcm->response,msecs_to_jiffies(1000))) {
+@@ -307,7 +307,13 @@
+ 	 * Tell the firmware to start up. After starting it sends an IDENTIFY report, which
+ 	 * we treat like a response to this message even though it's technically a new report.
+ 	 */
+-	ret = tcm_read_message(tcm, TCM_IDENTIFY, &id, sizeof(id));
++	/* Consume the reset IDENTIFY report without issuing a second IDENTIFY. */
++    if (!wait_for_completion_timeout(&tcm->response, msecs_to_jiffies(1000)))
++        ret = -ETIMEDOUT;
++    else if (tcm->buf[1] != REPORT_IDENTIFY || tcm->buf_size < sizeof(id))
++        ret = -EMSGSIZE;
++    else { memcpy(&id, tcm->buf, sizeof(id)); ret = 0; }
++    WRITE_ONCE(tcm->expected, 0);
+ 	if (ret) {
+ 		dev_err(&tcm->client->dev, "failed to identify device: %d\n", ret);
+ 		return ret;
+@@ -385,6 +391,7 @@
+ 
+ 	init_completion(&tcm->response);
+ 	mutex_init(&tcm->command_lock);
++    WRITE_ONCE(tcm->expected, REPORT_IDENTIFY);
+ 
+ 	tcm->supplies[0].supply = "vdd";
+ 	tcm->supplies[1].supply = "vcc";

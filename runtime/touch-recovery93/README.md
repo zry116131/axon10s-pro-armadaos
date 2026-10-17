@@ -1,0 +1,17 @@
+# #93 触屏初始化恢复
+
+2026-10-17 用户报告连接外接显示器后手机触摸失灵。本次开机和拔掉外接设备后单独 probe 均返回 -EMSGSIZE；触摸 input 设备缺失。不能据此证明外接显示器是原因。
+
+无参数 TCM 命令原先只发送一个字节。保留全部响应校验，仅改为 command + 0 + 0 三字节后，GET_APPLICATION_INFO 从 24 字节 payload 恢复为 48 字节，触摸配置为 128 字节，input 设备重新注册。用户当时确认点击和滑动恢复，内核记录首次接触事件。但后续重启推翻“三字节修改即可修复”的初判：仅该改动仍有 -90，显式 IDENTIFY 改期待 OK 的试验也出现超时。最终候选在复位前预置 IDENTIFY 接收状态，消费控制器的主动启动报告，不再额外发送 IDENTIFY；随后再查询应用信息。该流程诊断版连续三次重新加载/初始化通过，clean 模块加载也通过。它避免启动主动报告与额外识别命令的回复互相混淆；不宣称已证明所有固件时序行为。
+
+依据为驱动所引用的[厂商参考](https://github.com/LineageOS/android_kernel_oneplus_sm8250/blob/ee0a7ee1939ffd53000e42051caf8f0800defb27/drivers/input/touchscreen/synaptics_tcm/synaptics_tcm_core.c#L1324)：有响应的常规 write_message 无论 payload 是否为空都发送两字节长度，不能与 raw_write 混用。
+
+`0010-tcm-zero-payload-command-header.patch` 是待合入内核的最小修复。此目录保留对已安装 #93 的外部模块过渡方案：驱动重命名以避免与内置驱动重名；服务只在精确 #93、S3908 设备且驱动未绑定时加载固定哈希模块。设备已绑定时不做操作。没有强制加载、循环重试或刷写 boot。
+
+模块基于实际 #93 构建树、配置和 vmlinux.symvers 构建，不能用于其他内核。模块不进入 initramfs；文件和启用状态在根文件系统内持久保存。加载外部模块会设置内核 out-of-tree taint 位，不代表发生内核崩溃。若内置驱动成功注册，服务会保留它；本措施针对开机初始化失败，不能声称修复所有触摸/热插拔故障。
+
+系统安装位置：模块 `/usr/local/lib/axon/axon_tcm_repair93.ko`，脚本 `/usr/local/libexec/axon-touch-recover93.py`，unit `/etc/systemd/system/axon-touch-recover93.service`。回退时禁用该服务并保留可操作输入途径；不要对成功绑定的模块执行 rmmod/reload；原驱动释放 input 与停 IRQ 的顺序尚未加固，应在禁用服务后通过正常重启回退。升级到正式包含 0010 的内核时应取消此过渡服务。
+
+尚未处理的独立风险：IRQ 与命令线程共享响应缓冲区有并发窗口；本次三字节修复不宣称解决该问题。#93 boot 下载负载本身保持不变，不包含本补丁。
+
+最终正常重启验收：内置驱动再次 -90 后，恢复服务自动加载最终模块并注册触摸设备，service exit=0、无失败系统单元。三次热重载只是已发生的受控历史测试，因继承的 teardown 风险不建议重复。用户点击/滑动确认来自本轮较早的诊断候选，最终版本尚需物理回归与外屏反复热插拔验证。

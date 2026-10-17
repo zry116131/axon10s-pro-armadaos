@@ -1,0 +1,13 @@
+[Unit]
+Description=Axon kernel 93 bounded touchscreen startup recovery
+After=systemd-udev-trigger.service
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/axon-touch-recover93.py
+TimeoutStartSec=35
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target axon-test.target

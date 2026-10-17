@@ -4,6 +4,8 @@
 
 [下载 #93 开发预览](https://github.com/zry116131/axon10s-pro-armadaos/releases/tag/v0.2.0-dev.20261017)
 
+**后续发现：#93 内置触屏驱动存在启动识别回复匹配和无参数命令头问题，可能开机初始化失败。当前开发设备已采用[触屏恢复补丁](../runtime/touch-recovery93/README.md)。本页 boot 镜像尚未重编入此修复。**
+
 ## 文件与身份
 
 - `axon10s-pro-armada-boot93-e116ddc5.img`：73,162,752 字节，Android boot v2 启动镜像。
